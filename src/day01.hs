@@ -6,13 +6,13 @@ import Utils (Solution, runSolution, testWithExample)
 -- PART ONE
 
 day01part1 :: Solution
-day01part1 lines = toInteger $ sum calibrationValues
+day01part1 rows = toInteger $ sum calibrationValues
   where
-    calibrationValues = map getCalibrationValue lines
+    calibrationValues = map getCalibrationValue rows
 
 getDigit :: String -> Maybe Int
 getDigit [] = Nothing
-getDigit (x : xs)
+getDigit (x : _)
   | isDigit x = Just $ digitToInt x
   | otherwise = Nothing
 
@@ -32,13 +32,13 @@ getCalibrationValue xs = headDigit * 10 + lastDigit
 digitsInWord = ["one", "two", "three", "four", "five", "six", "seven", "eight", "nine"]
 
 day01part2 :: Solution
-day01part2 lines = toInteger $ sum calibrationValues
+day01part2 rows = toInteger $ sum calibrationValues
   where
-    calibrationValues = map getCalibrationValue' lines
+    calibrationValues = map getCalibrationValue' rows
 
 getDigit' :: String -> Maybe Int
 getDigit' [] = Nothing
-getDigit' v@(x : xs)
+getDigit' v@(x : _)
   | isDigit x = Just $ digitToInt x
   | otherwise = tryGetDigitFromWord v
 
@@ -47,7 +47,7 @@ extractDigitWord xs = head' $ filter isPrefixOf' digitsInWord
   where
     isPrefixOf' word = word `isPrefixOf` xs
     head' [] = Nothing
-    head' (x : xs) = Just x
+    head' (x : _) = Just x
 
 tryGetDigitFromWord :: String -> Maybe Int
 tryGetDigitFromWord xs =
@@ -56,14 +56,14 @@ tryGetDigitFromWord xs =
     _ -> Nothing
 
 getFirstDigit' :: String -> Int
-getFirstDigit' xs = head $ catMaybes maybeDigits
+getFirstDigit' s = head $ catMaybes maybeDigits
   where
-    maybeDigits = map getDigit' $ tails xs
+    maybeDigits = map getDigit' $ tails s
 
 getLastDigit' :: String -> Int
-getLastDigit' xs = head $ catMaybes maybeDigits
+getLastDigit' s = head $ catMaybes maybeDigits
   where
-    maybeDigits = reverse $ map getDigit' $ tails xs
+    maybeDigits = reverse $ map getDigit' $ tails s
 
 getCalibrationValue' :: String -> Int
 getCalibrationValue' xs = firstDigit * 10 + lastDigit
