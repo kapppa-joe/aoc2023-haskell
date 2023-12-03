@@ -34,6 +34,7 @@ data Symbol = Symbol
 
 data Schema = Schema {partNumbers :: [PartNumber], symbols :: [Symbol]} deriving (Show)
 
+emptySchema :: Schema
 emptySchema = Schema [] []
 
 join :: Schema -> Schema -> Schema
@@ -63,10 +64,10 @@ parseLineS x y (cell : cells) =
    in Schema parts (newSymbol : syms)
 
 parseLineY :: Int -> String -> Schema
-parseLineY y s = parseLineXY 0 y s
+parseLineY = parseLineXY 0
 
 parseMap :: [String] -> Schema
-parseMap strs = parseMap' 0 strs
+parseMap = parseMap' 0
   where
     parseMap' _ [] = emptySchema
     parseMap' y (curr : remaining) = join (parseLineY y curr) (parseMap' (y + 1) remaining)
@@ -76,10 +77,10 @@ parseMap strs = parseMap' 0 strs
 -------------
 
 isAdjacent :: PartNumber -> Symbol -> Bool
-isAdjacent (PartNumber x0 y0 number) (Symbol x1 y1 _)
+isAdjacent (PartNumber x0 y0 num) (Symbol x1 y1 _)
   | abs (y1 - y0) > 1 = False
   | x0 - x1 > 1 = False
-  | x1 - (x0 + countDigits number) > 0 = False
+  | x1 - (x0 + countDigits num) > 0 = False
   | otherwise = True
   where
     countDigits = length . show
@@ -102,13 +103,13 @@ getAdjacentParts :: [PartNumber] -> Symbol -> [PartNumber]
 getAdjacentParts nums sym = [num | num <- nums, isAdjacent num sym]
 
 day03part2 :: Solution
-day03part2 input = 
-  let 
+day03part2 input =
+  let
     (Schema partNums syms) = parseMap input
-    isGear sym = symbol sym == '*' 
+    isGear sym = symbol sym == '*'
     gears = filter isGear syms
     candidateParts = map (getAdjacentParts partNums) gears :: [[PartNumber]]
-    wantedPairs = [pair | pair <- candidateParts, (length pair) == 2]
+    wantedPairs = [pair | pair <- candidateParts, length pair == 2]
     getGearRatio pair = product [number part | part <- pair]
   in
     toInteger $ sum [getGearRatio pair | pair <- wantedPairs]

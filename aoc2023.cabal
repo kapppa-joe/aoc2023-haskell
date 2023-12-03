@@ -25,7 +25,6 @@ source-repository head
 
 library
   exposed-modules:
-      Lib
       Utils
   other-modules:
       Paths_aoc2023
