@@ -1,3 +1,10 @@
+module Day04 (
+  day04part1,
+  day04part2
+)
+
+where
+
 import Data.List (intersect)
 import Text.ParserCombinators.Parsec
 import Text.Parsec (endOfLine)
@@ -29,10 +36,10 @@ parseCard = do
   return $ Card (read cardId) winningNums numsGot
 
 parseCards :: Parser [Card]
-parseCards = sepBy1 parseCard $ endOfLine
+parseCards = sepBy1 parseCard endOfLine
 
 findWins :: Card -> [Int]
-findWins (Card _ ws ns) = intersect ws ns
+findWins (Card _ ws ns) = ws `intersect` ns
 
 countPoints :: Card -> Int
 countPoints card =
@@ -40,8 +47,8 @@ countPoints card =
       hasWon = wins > 0
    in if hasWon then 2 ^ (wins - 1) else 0
 
-day04part01 :: [Card] -> Int
-day04part01 cards = sum [countPoints card | card <- cards]
+day04part1 :: [Card] -> Int
+day04part1 cards = sum [countPoints card | card <- cards]
 
 countWins :: [Card] -> [Int]
 countWins = map $ length . findWins
@@ -66,8 +73,8 @@ winCards cards cardCounter n
     padZero = replicate (n + 1) 0
     cardsWon = padZero ++ cardsWon'
 
-day04part02 :: [Card] -> Integer
-day04part02 cards = sum $ foldl winCards' startingCards [0 .. n]
+day04part2 :: [Card] -> Integer
+day04part2 cards = sum $ foldl winCards' startingCards [0 .. n]
   where
     n = length cards
     startingCards = replicate n 1
@@ -81,4 +88,4 @@ runWithFile p solver fileName = do
     Right games -> print $ solver games
 
 main :: IO ()
-main = runWithFile parseCards day04part02 "puzzle/04.txt"
+main = runWithFile parseCards day04part2 "puzzle/04.txt"
