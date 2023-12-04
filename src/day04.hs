@@ -1,5 +1,6 @@
 import Data.List (intersect)
 import Text.ParserCombinators.Parsec
+import Text.Parsec (endOfLine)
 
 data Card = Card
   { id :: Int,
@@ -11,26 +12,24 @@ data Card = Card
 parseNumber :: Parser Int
 parseNumber = do
   number <- many1 digit
-  many $ char ' '
+  skipMany $ char ' '
   return $ read number
 
 parseCard :: Parser Card
 parseCard = do
-  string "Card"
+  _ <- string "Card"
   spaces
   cardId <- many1 digit
-  char ':'
+  _ <- char ':'
   spaces
-  winningNumbers <- many1 parseNumber
-  string "|"
+  winningNums <- many1 parseNumber
+  _ <- string "|"
   spaces
-  numbersGot <- many1 parseNumber
-  return $ Card (read cardId) winningNumbers numbersGot
-  where
-    spaces = many1 $ char ' '
+  numsGot <- many1 parseNumber
+  return $ Card (read cardId) winningNums numsGot
 
 parseCards :: Parser [Card]
-parseCards = sepBy1 parseCard $ char '\n'
+parseCards = sepBy1 parseCard $ endOfLine
 
 findWins :: Card -> [Int]
 findWins (Card _ ws ns) = intersect ws ns
@@ -81,4 +80,5 @@ runWithFile p solver fileName = do
     Left err -> print err
     Right games -> print $ solver games
 
+main :: IO ()
 main = runWithFile parseCards day04part02 "puzzle/04.txt"
