@@ -2,11 +2,13 @@ module Utils
   ( runSolutionWithFile,
     runSolution,
     testWithExample,
+    runWithParser,
     Solution
   )
 where
 
 import Text.Printf (printf)
+import Text.ParserCombinators.Parsec (Parser, parseFromFile)
 
 type Solution = [String] -> Integer
 
@@ -26,3 +28,10 @@ testWithExample :: String -> Solution -> IO ()
 testWithExample filename solution = runSolutionWithFile solution filename'
   where
     filename' = printf "example/" ++ filename ++ ".txt"
+
+runWithParser :: (Show a) => Parser t -> (t -> a) -> FilePath -> IO ()
+runWithParser p solver fileName = do
+  result <- parseFromFile p fileName
+  case result of
+    Left err -> print err
+    Right games -> print $ solver games

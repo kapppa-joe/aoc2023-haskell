@@ -1,13 +1,13 @@
-module Day04 (
-  day04part1,
-  day04part2
-)
-
+module Day04
+  ( day04part1,
+    day04part2,
+  )
 where
 
 import Data.List (intersect)
-import Text.ParserCombinators.Parsec
 import Text.Parsec (endOfLine)
+import Text.ParserCombinators.Parsec
+import Utils (runWithParser)
 
 data Card = Card
   { id :: Int,
@@ -61,15 +61,15 @@ sumTwoLists a b = take maxLen $ zipWith (+) a' b'
     b' = b ++ repeat 0
 
 winCards :: [Card] -> [Integer] -> Int -> [Integer]
-winCards cards cardCounter n
-  | n >= length winCounts = cardCounter
-  | winCounts !! n == 0 = cardCounter
-  | otherwise = sumTwoLists cardCounter cardsWon
+winCards cards cardsCounter n
+  | n >= length winCounts = cardsCounter
+  | winCounts !! n == 0 = cardsCounter
+  | otherwise = sumTwoLists cardsCounter cardsWon
   where
     winCounts = countWins cards
     wonHowMany = winCounts !! n :: Int
-    howManyNthCard = cardCounter !! n :: Integer
-    cardsWon' = replicate wonHowMany howManyNthCard
+    nthCardOnHand = cardsCounter !! n :: Integer
+    cardsWon' = replicate wonHowMany nthCardOnHand
     padZero = replicate (n + 1) 0
     cardsWon = padZero ++ cardsWon'
 
@@ -80,12 +80,5 @@ day04part2 cards = sum $ foldl winCards' startingCards [0 .. n]
     startingCards = replicate n 1
     winCards' = winCards cards
 
-runWithFile :: (Show a) => Parser t -> (t -> a) -> FilePath -> IO ()
-runWithFile p solver fileName = do
-  result <- parseFromFile p fileName
-  case result of
-    Left err -> print err
-    Right games -> print $ solver games
-
 main :: IO ()
-main = runWithFile parseCards day04part2 "puzzle/04.txt"
+main = runWithParser parseCards day04part2 "puzzle/04.txt"

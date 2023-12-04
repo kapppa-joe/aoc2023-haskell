@@ -1,5 +1,5 @@
 import Text.ParserCombinators.Parsec
-import Utils (Solution)
+import Utils (runWithParser)
 
 data Colour = Red | Green | Blue deriving (Eq, Ord, Enum, Show)
 
@@ -88,11 +88,4 @@ day02part02 games = sum $ map getMinimumCubes games
 -- MAIN
 -------------
 
-runWithFile :: (Show a) => Parser t -> (t -> a) -> FilePath -> IO ()
-runWithFile p solver fileName = do
-  result <- parseFromFile p fileName
-  case result of
-    Left err -> print err
-    Right games -> print $ solver games
-
-main = runWithFile parseGames day02part02 "puzzle/02.txt"
+main = runWithParser parseGames day02part02 "puzzle/02.txt"
