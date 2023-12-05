@@ -5,8 +5,8 @@ module Day04
 where
 
 import Data.List (intersect)
-import Text.Parsec (endOfLine)
-import Text.ParserCombinators.Parsec
+import Text.Parsec
+import Text.ParserCombinators.Parsec (Parser)
 import Utils (runWithParser)
 
 data Card = Card
@@ -15,6 +15,10 @@ data Card = Card
     numbersGot :: [Int]
   }
   deriving (Show)
+
+---------------
+-- Parsing
+---------------
 
 parseNumber :: Parser Int
 parseNumber = do
@@ -38,6 +42,10 @@ parseCard = do
 parseCards :: Parser [Card]
 parseCards = sepBy1 parseCard endOfLine
 
+---------------
+-- Part 1
+---------------
+
 findWins :: Card -> [Int]
 findWins (Card _ ws ns) = ws `intersect` ns
 
@@ -50,30 +58,38 @@ countPoints card =
 day04part1 :: [Card] -> Int
 day04part1 cards = sum [countPoints card | card <- cards]
 
+---------------
+-- Part 2
+---------------
+
+type CardsOnHand = [Int]
+
 countWins :: [Card] -> [Int]
 countWins = map $ length . findWins
 
-sumTwoLists :: [Integer] -> [Integer] -> [Integer]
+sumTwoLists :: [Int] -> [Int] -> [Int]
 sumTwoLists a b = take maxLen $ zipWith (+) a' b'
   where
     maxLen = max (length a) (length b)
     a' = a ++ repeat 0
     b' = b ++ repeat 0
 
-winCards :: [Card] -> [Integer] -> Int -> [Integer]
-winCards cards cardsCounter n
-  | n >= length winCounts = cardsCounter
-  | winCounts !! n == 0 = cardsCounter
-  | otherwise = sumTwoLists cardsCounter cardsWon
+winCards :: [Card] -> CardsOnHand -> Int -> CardsOnHand
+winCards cards cardsOnHand n
+  | exceedBound = cardsOnHand
+  | noCardsWon = cardsOnHand
+  | otherwise = sumTwoLists cardsOnHand cardsWon
   where
+    exceedBound = n >= length winCounts 
     winCounts = countWins cards
+    noCardsWon = winCounts !! n == 0 
     wonHowMany = winCounts !! n :: Int
-    nthCardOnHand = cardsCounter !! n :: Integer
-    cardsWon' = replicate wonHowMany nthCardOnHand
+    howManyNthCardOnHand = cardsOnHand !! n :: Int
+    nextNCardsWon = replicate wonHowMany howManyNthCardOnHand
     padZero = replicate (n + 1) 0
-    cardsWon = padZero ++ cardsWon'
+    cardsWon = padZero ++ nextNCardsWon
 
-day04part2 :: [Card] -> Integer
+day04part2 :: [Card] -> Int
 day04part2 cards = sum $ foldl winCards' startingCards [0 .. n]
   where
     n = length cards
