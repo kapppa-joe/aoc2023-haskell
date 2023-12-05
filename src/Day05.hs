@@ -1,12 +1,10 @@
-import Text.Parsec (endOfLine)
-import Text.ParserCombinators.Parsec
+import Text.Parsec
+import Text.ParserCombinators.Parsec (Parser)
 import Utils (runWithParser)
 
-parseSeeds :: Parser [Int]
-parseSeeds = do
-  _ <- string "seeds: "
-  numbers <- sepBy1 (many1 digit) (char ' ')
-  return $ map read numbers
+---------------
+-- Parsing
+---------------
 
 type DstStart = Int
 
@@ -14,16 +12,22 @@ type SrcStart = Int
 
 type RangeLen = Int
 
-type MapLine = (DstStart, SrcStart, RangeLen)
+type PartialMap = (DstStart, SrcStart, RangeLen)
 
-type Mapping = [MapLine]
+type Mapping = [PartialMap]
 
 type MappedNum = Int
 
 type Almanac = ([Int], [Mapping])
 
-parseMapLine :: Parser MapLine
-parseMapLine = do
+parseSeeds :: Parser [Int]
+parseSeeds = do
+  _ <- string "seeds: "
+  numbers <- sepBy1 (many1 digit) (char ' ')
+  return $ map read numbers
+
+parsePartialMap :: Parser PartialMap
+parsePartialMap = do
   a <- many1 digit
   _ <- space
   b <- many1 digit
@@ -32,15 +36,14 @@ parseMapLine = do
   _ <- endOfLine
   return (read a, read b, read c)
 
-parseMapping :: Parser Mapping
-parseMapping = do
-  _ <- many1 (lower <|> oneOf "-: ")
-  _ <- endOfLine
-  many1 parseMapLine
-
 parseMappings :: Parser [Mapping]
 parseMappings = do
   sepBy1 parseMapping endOfLine
+  where
+    parseMapping = do
+      _ <- many1 (lower <|> oneOf "-: ")
+      _ <- endOfLine
+      many1 parsePartialMap
 
 parseAlmanac :: Parser ([Int], [Mapping])
 parseAlmanac = do
@@ -49,60 +52,87 @@ parseAlmanac = do
   mappings <- parseMappings
   return (seeds, mappings)
 
-runMapLine :: Either Int MappedNum -> MapLine -> Either Int MappedNum
-runMapLine (Right x) _ = Right x
-runMapLine (Left n) (d, s, r)
+---------------
+-- Part 1
+---------------
+
+runPartialMap :: Either Int MappedNum -> PartialMap -> Either Int MappedNum
+runPartialMap (Right x) _ = Right x
+runPartialMap (Left n) (d, s, r)
   | isInRange = Right (d + n - s)
   | otherwise = Left n
   where
     isInRange = n >= s && n < (s + r)
 
-extractNum :: Either Int MappedNum -> Int
-extractNum (Left x) = x
-extractNum (Right y) = y
-
 runMap :: Mapping -> Int -> Int
-runMap m x =
-  let startNum = Left x
-   in extractNum $ foldl runMapLine startNum m
+runMap m x = extractNum $ foldl runPartialMap startNum m
+  where
+    startNum = Left x
+    extractNum wrappedNum = case wrappedNum of
+      Left a -> a
+      Right a -> a
 
 composeMaps :: [Mapping] -> (Int -> Int)
 composeMaps ms = foldl1 (.) $ reverse [runMap m | m <- ms]
-
--- mapA = [(50, 98, 2), (52, 50, 48)] :: Mapping
-
--- main = print $ [runMap mapA x | x <- [79, 14, 55, 13]]
 
 day05part1 :: Almanac -> Int
 day05part1 (seeds, maps) = minimum [composedMap seed | seed <- seeds]
   where
     composedMap = composeMaps maps
 
-revertMapLine :: MapLine -> MapLine
-revertMapLine (d, s, r) = (s, d, r)
+---------------
+-- Part 2
+---------------
+type Start = Int
 
-revertMaps :: [Mapping] -> [Mapping]
-revertMaps ms = reverse [map revertMapLine m | m <- ms]
+type End = Int
 
-seedRanges :: [Int] -> [(Int, Int)]
+type Range = (Start, End) -- right exclusive, i.e. (1,4) -> [1, 2, 3]
+
+type Mapped = [Range]
+
+type NotMapped = [Range]
+
+type SeedRangesInProcess = (NotMapped, Mapped)
+
+seedRanges :: [Int] -> [Range]
 seedRanges [] = []
-seedRanges (x : y : xs) = (x, y) : seedRanges xs
+seedRanges (x : y : xs) = (x, x + y) : seedRanges xs
 seedRanges _ = error "fail to parse seed ranges"
 
-seedInRanges :: [(Int, Int)] -> Int -> Bool
-seedInRanges ranges seed = any inRange ranges
+runPartialMapOnRange :: PartialMap -> Range -> SeedRangesInProcess
+runPartialMapOnRange (d, s, r) (start, end)
+  | overlapStart > overlapEnd = ([(start, end)], [])
+  | otherwise = (nonMappedRanges, [mappedRange])
   where
-    inRange (start, len) = seed >= start && (seed < start + len)
+    mapRangeEnd = s + r
+    overlapStart = max s start
+    overlapEnd = min mapRangeEnd end
+    diff = d - s
+    mappedRange = (overlapStart + diff, overlapEnd + diff)
+    nonMappedRanges = discardNull [(start, overlapStart), (overlapEnd, end)]
+    discardNull = filter (\(a, b) -> b > a) :: [Range] -> [Range]
 
--- rngs = [79, 14, 55, 13]
--- a = seedInRanges (seedRanges rngs) 55
--- main = do
---   print a
+runPartialMapOnMultiRanges :: SeedRangesInProcess -> PartialMap -> SeedRangesInProcess
+runPartialMapOnMultiRanges (notMapped, mapped) m =
+  let (notMapped', mapped') = unzip [runPartialMapOnRange m range | range <- notMapped]
+   in (foldl1 (++) notMapped', foldl1 (++) mapped' ++ mapped)
 
-day05part2 (seeds, maps) = head [location | location <- [0 ..], let seed = revertedMap location, seedInRanges' seed]
+mapRanges :: Mapping -> [Range] -> [Range]
+mapRanges m r =
+  let initialRanges = (r, []) :: SeedRangesInProcess
+      (notMapped, mapped) = foldl runPartialMapOnMultiRanges initialRanges m
+   in notMapped ++ mapped
+
+composeMaps' :: [Mapping] -> ([Range] -> [Range])
+composeMaps' maps = foldl1 (.) $ reverse [mapRanges m | m <- maps]
+
+day05part2 :: Almanac -> Int
+day05part2 (seeds, maps) = minimum [fst rng | rng <- locationRanges]
   where
-    revertedMap = composeMaps $ revertMaps maps
-    seedInRanges' = seedInRanges $ seedRanges seeds
+    initalSeedRanges = seedRanges seeds
+    composedMap = composeMaps' maps
+    locationRanges = composedMap initalSeedRanges
 
--- main :: IO ()
+main :: IO ()
 main = runWithParser parseAlmanac day05part2 "puzzle/05.txt"
