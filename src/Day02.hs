@@ -1,5 +1,8 @@
-import Text.ParserCombinators.Parsec
+import Text.Parsec
+import Text.ParserCombinators.Parsec (Parser)
 import Utils (runWithParser)
+
+{-# ANN module "HLint: ignore Use <$>" #-}
 
 data Colour = Red | Green | Blue deriving (Eq, Ord, Enum, Show)
 
@@ -10,26 +13,20 @@ data Draw = Draw
   }
   deriving (Show)
 
-data Game = Game
-  { gameId :: Int,
-    draws :: [Draw]
-  }
-  deriving (Show)
+type GameId = Int
 
-emptyDraw = Draw {red = 0, green = 0, blue = 0}
-
-parseRed = try $ string "red" >> pure Red
-
-parseGreen = try $ string "green" >> pure Green
-
-parseBlue = try $ string "blue" >> pure Blue
+data Game = Game GameId [Draw] deriving (Show)
 
 parseColour :: Parser (Colour, Int)
 parseColour = do
   number <- many1 digit
-  char ' '
+  spaces
   colour <- parseRed <|> parseGreen <|> parseBlue
   return (colour, read number)
+  where
+    parseRed = try $ string "red" >> pure Red
+    parseGreen = try $ string "green" >> pure Green
+    parseBlue = try $ string "blue" >> pure Blue
 
 parseColours :: Parser [(Colour, Int)]
 parseColours = sepBy1 parseColour $ string ", "
@@ -40,17 +37,20 @@ mergeColour d (Green, i) = d {green = i}
 mergeColour d (Blue, i) = d {blue = i}
 
 parseDraw :: Parser Draw
-parseDraw = do foldl mergeColour emptyDraw <$> parseColours
+parseDraw = do
+  parsedColours <- parseColours
+  return $ foldl mergeColour emptyDraw parsedColours
+  where
+    emptyDraw = Draw 0 0 0
 
 parseDraws :: Parser [Draw]
 parseDraws = sepBy1 parseDraw $ string "; "
 
-{-# ANN parseGame "HLint: ignore Use <$>" #-}
 parseGame :: Parser Game
 parseGame = do
-  string "Game "
+  _ <- string "Game "
   gameId <- many1 digit
-  string ": "
+  _ <- string ": "
   draws <- parseDraws
   return $ Game (read gameId) draws
 
@@ -66,20 +66,20 @@ isPossible (Game _ draws) = all isPossibleDraw draws
   where
     isPossibleDraw (Draw r g b) = r <= 12 && g <= 13 && b <= 14
 
-getIdOfPossibleGame :: Game -> Int
-getIdOfPossibleGame g@(Game id draws)
-  | isPossible g = id
-  | otherwise = 0
+-- extractIdForPossibleGames :: Game -> Int
+-- extractIdForPossibleGames game@(Game gameId _)
+--   | isPossible game = gameId
+--   | otherwise = 0
 
 day02part01 :: [Game] -> Int
-day02part01 games = sum $ map getIdOfPossibleGame games
+day02part01 games = sum [gameId | game <- games, let (Game gameId _) = game, isPossible game]
 
 -------------
 -- PART 02
 -------------
 
 getMinimumCubes :: Game -> Int
-getMinimumCubes (Game id draws) = product [maximum [getByColour d | d <- draws] | getByColour <- [red, green, blue]]
+getMinimumCubes (Game _ draws) = product [maximum [getByColour d | d <- draws] | getByColour <- [red, green, blue]]
 
 day02part02 :: [Game] -> Int
 day02part02 games = sum $ map getMinimumCubes games
@@ -88,4 +88,5 @@ day02part02 games = sum $ map getMinimumCubes games
 -- MAIN
 -------------
 
+main :: IO ()
 main = runWithParser parseGames day02part02 "puzzle/02.txt"
