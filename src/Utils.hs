@@ -11,6 +11,7 @@ import Text.Printf (printf)
 import Text.ParserCombinators.Parsec (Parser, parseFromFile)
 
 type Solution = [String] -> Integer
+type Day = Int
 
 runSolutionWithFile :: Solution -> String -> IO ()
 runSolutionWithFile solution filename = do
@@ -19,7 +20,7 @@ runSolutionWithFile solution filename = do
   let answer = solution fileLines
   print answer
 
-runSolution :: Int -> Solution -> IO ()
+runSolution :: Day -> Solution -> IO ()
 runSolution day solution = runSolutionWithFile solution filename
   where
     filename = printf "puzzle/%02d.txt" day
