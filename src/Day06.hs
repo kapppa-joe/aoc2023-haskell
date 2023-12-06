@@ -20,8 +20,7 @@ parseRace = do
   _ <- string "Distance:"
   spaces
   distances <- sepBy1 (many1 digit) $ many1 $ char ' '
-  let races = zip (parseInts times) (parseInts distances)
-  return races
+  return $ zip (parseInts times) (parseInts distances)
   where
     parseInts = map read
 
@@ -38,19 +37,21 @@ binarySearch f left right
     middle = (left + right) `div` 2
 
 canBreakRecord :: Race -> InitSpeed -> Bool
-canBreakRecord (time, dist) v =
-  (time - v) * v > dist
+canBreakRecord (time, dist) v = (time - v) * v > dist
 
-countWaysToWin :: Race -> Int
-countWaysToWin race@(time, _) =
+countNumberOfWays :: Race -> Int
+countNumberOfWays race@(time, _) =
   let middle = time `div` 2
       f = canBreakRecord race
       leftBound = fromJust $ binarySearch f 0 middle
       rightBound = fromJust $ binarySearch (not . f) middle time
    in rightBound - leftBound
 
+day06part1 :: [Race] -> Int
+day06part1 races = product [countNumberOfWays race | race <- races]
+
 ------
--- Alternative solution (O1)
+-- Alternative solution
 -- `(time - v) * v > dist`  can be rewritten as `v*2 - time * v + dist < 0`,
 -- from which the bounds of v can be found by quadratic formula
 -- as it is an inequality, so if both roots are integers than there are two less integral solutions
@@ -67,12 +68,9 @@ solveByQuadratic time dist =
       discriminant = (b ** 2 - 4 * a * c)
       rootA = (sqrt discriminant - b) / 2
       rootB = ((-1) * sqrt discriminant - b) / 2
-      rightBound = if isInteger rootA then floor rootA - 1 else floor rootA
+      rightBound = if isInteger rootA then floor rootA else floor rootA + 1 -- right bound is exclusive
       leftBound = if isInteger rootB then ceiling rootB + 1 else ceiling rootB
-   in rightBound - leftBound + 1
-
-day06part1 :: [Race] -> Int
-day06part1 races = product [countWaysToWin race | race <- races]
+   in rightBound - leftBound
 
 day06part1' :: [Race] -> Int
 day06part1' races = product [solveByQuadratic time dist | (time, dist) <- races]
@@ -88,7 +86,7 @@ combineRaces races =
    in (joinNumbers times, joinNumbers distances)
 
 day06part2 :: [Race] -> Int
-day06part2 races = countWaysToWin $ combineRaces races
+day06part2 races = countNumberOfWays $ combineRaces races
 
 day06part2' :: [Race] -> Int
 day06part2' races = solveByQuadratic time distance
