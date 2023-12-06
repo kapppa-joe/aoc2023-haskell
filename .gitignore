@@ -5,3 +5,4 @@ puzzle
 app/
 memo.txt
 dist-newstyle/
+.vscode
