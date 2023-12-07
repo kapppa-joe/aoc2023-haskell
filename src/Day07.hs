@@ -53,14 +53,17 @@ type CardCounter = Map.Map Label Int
 
 judgeHandType :: CardCounter -> TypeOfHand
 judgeHandType counter
-  | uniqueCards == 1 = FiveOfAKind
-  | uniqueCards == 2 = if hasXOfAKind 4 then FourOfAKind else FullHouse
-  | uniqueCards == 3 = if hasXOfAKind 3 then ThreeOfAKind else TwoPair
-  | uniqueCards == 4 = OnePair
+  | allSameCard = FiveOfAKind
+  | hasXOfAKind 4 = FourOfAKind
+  | hasXOfAKind 3 && hasXOfAKind 2 = FullHouse
+  | hasXOfAKind 3 = ThreeOfAKind
+  | countXOfAKind 2 == 2 = TwoPair
+  | hasXOfAKind 2 = OnePair
   | otherwise = HighCard
   where
     hasXOfAKind x = not . Map.null $ Map.filter (== x) counter
-    uniqueCards = Map.size counter
+    countXOfAKind x = Map.size $ Map.filter (== x) counter
+    allSameCard = Map.size counter == 1
 
 typeOfHand :: Hand -> TypeOfHand
 typeOfHand = judgeHandType . countOccurence
@@ -80,7 +83,7 @@ solver sortKeyFunc handsAndBids =
       winnings = [bid * rank | ((_, bid), rank) <- handsWithRank]
    in sum winnings
 
-day07part1 :: [(Hand, Bid)] -> Int
+day07part1 :: Input -> Int
 day07part1 = solver handStrength
 
 ---------------
@@ -93,17 +96,18 @@ cardStrengthJ card = fromJust $ elemIndex card "J23456789TQKA"
 judgeHandTypeJ :: CardCounter -> TypeOfHand
 judgeHandTypeJ counter =
   case Map.lookup 'J' counter of
-    Nothing -> judgeHandType counter
+    Nothing -> judgeHandType counter -- reuse prev ver if no joker
     Just n -> handleJoker n
   where
     uniqueCards = Map.size counter
     hasXOfAKind x = not . Map.null $ Map.filter (== x) counter
+    countXOfAKind x = Map.size $ Map.filter (== x) counter
     handleJoker jokerCount
       | uniqueCards <= 2 = FiveOfAKind
-      | uniqueCards == 3 && jokerCount >= 2 = FourOfAKind
-      | uniqueCards == 3 && hasXOfAKind 3 = FourOfAKind
-      | uniqueCards == 3 = FullHouse
-      | uniqueCards == 4 = ThreeOfAKind
+      | hasXOfAKind 3 = FourOfAKind -- AAABJ or ABJJJ
+      | countXOfAKind 2 == 2 && jokerCount == 2 = FourOfAKind -- AABJJ
+      | uniqueCards == 3 = FullHouse -- AABBJ
+      | uniqueCards == 4 = ThreeOfAKind -- AABCJ
       | otherwise = OnePair
 
 typeOfHandJ :: Hand -> TypeOfHand
@@ -112,8 +116,11 @@ typeOfHandJ = judgeHandTypeJ . countOccurence
 handStrengthJ :: Hand -> HandStrength
 handStrengthJ hand = (typeOfHandJ hand, [cardStrengthJ card | card <- hand])
 
-day07part2 :: [(Hand, Bid)] -> Int
+day07part2 :: Input -> Int
 day07part2 = solver handStrengthJ
 
+bothParts :: Input -> (Int, Int)
+bothParts x = (day07part1 x, day07part2 x)
+
 main :: IO ()
-main = runWithParser parseInput day07part2 "puzzle/07.txt"
+main = runWithParser parseInput bothParts "puzzle/07.txt"
