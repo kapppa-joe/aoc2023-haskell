@@ -5,9 +5,9 @@ import Text.Parsec
 import Text.ParserCombinators.Parsec (Parser)
 import Utils (runWithParser)
 
-type Label = Char
+type Card = Char
 
-type Hand = [Label]
+type Hand = [Card]
 
 type Bid = Int
 
@@ -23,7 +23,7 @@ data TypeOfHand
   | FiveOfAKind
   deriving (Eq, Ord, Enum, Show)
 
-allCards :: [Label]
+allCards :: [Card]
 allCards = "23456789TJQKA"
 
 parseInput :: Parser Input
@@ -49,7 +49,7 @@ countOccurence (key : xs) =
         Nothing -> Map.insert key 1 m
         Just _ -> Map.insertWith (+) key 1 m
 
-type CardCounter = Map.Map Label Int
+type CardCounter = Map.Map Card Int
 
 judgeHandType :: CardCounter -> TypeOfHand
 judgeHandType counter
@@ -68,7 +68,7 @@ judgeHandType counter
 typeOfHand :: Hand -> TypeOfHand
 typeOfHand = judgeHandType . countOccurence
 
-cardStrength :: Label -> Int
+cardStrength :: Card -> Int
 cardStrength card = fromJust $ elemIndex card allCards
 
 type HandStrength = (TypeOfHand, [Int])
@@ -90,7 +90,7 @@ day07part1 = solver handStrength
 -- Part 2
 ---------------
 
-cardStrengthJ :: Label -> Int
+cardStrengthJ :: Card -> Int
 cardStrengthJ card = fromJust $ elemIndex card "J23456789TQKA"
 
 judgeHandTypeJ :: CardCounter -> TypeOfHand
