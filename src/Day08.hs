@@ -16,11 +16,11 @@ type Step = Int
 
 parseNode :: Parser (Node, Node, Node)
 parseNode = do
-  curr <- count 3 letter
+  curr <- count 3 alphaNum
   _ <- string " = ("
-  left <- count 3 letter
+  left <- count 3 alphaNum
   _ <- string ", "
-  right <- count 3 letter
+  right <- count 3 alphaNum
   _ <- string ")"
 
   return (curr, left, right)
@@ -57,16 +57,25 @@ exploreNetwork m inst curr step =
 toIterater :: (a -> Step -> a) -> ((a, Step) -> (a, Step))
 toIterater f (curr, step) = (f curr step, step + 1)
 
-day08part1 :: (Instruction, Network) -> (String, Step)
+day08part1 :: (Instruction, Network) -> (Node, Step)
 day08part1 (inst, m) =
   let explore = toIterater $ exploreNetwork m inst
       start = ("AAA", 0) :: (Node, Step)
       stopCondition (node, _) = node == "ZZZ" :: Bool
    in head $ dropWhile (not . stopCondition) $ iterate explore start
 
-exploreAsGhost :: Network -> Instruction -> [Node] -> Step -> [Node]
-exploreAsGhost m inst currs step = [exploreNetwork m inst currNode step | currNode <- currs]
+getStepEndsWithZ :: Network -> Instruction -> Node -> Step
+getStepEndsWithZ m inst startNode =
+  let explore = toIterater $ exploreNetwork m inst
+      future = iterate explore (startNode, 0) :: [(Node, Step)]
+      possibleStops = filter (\(node, _) -> last node == 'Z') future :: [(Node, Step)]
+   in head $ map snd possibleStops
 
+day08part2 :: (Instruction, Map.Map [Char] (Node, Node)) -> Step
+day08part2 (inst, m) = foldl1 lcm [getStepEndsWithZ m inst node | node <- startNodes]
+  where
+    startNodes = filter (\x -> last x == 'A') $ Map.keys m
 
+main :: IO ()
 main = do
-  runWithParser parseInput day08part1 "puzzle/08.txt"
+  runWithParser parseInput day08part2 "puzzle/08.txt"
