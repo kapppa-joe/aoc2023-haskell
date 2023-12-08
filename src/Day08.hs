@@ -71,7 +71,7 @@ getStepEndsWithZ m inst startNode =
       possibleStops = filter (\(node, _) -> last node == 'Z') future :: [(Node, Step)]
    in head $ map snd possibleStops
 
-day08part2 :: (Instruction, Map.Map [Char] (Node, Node)) -> Step
+day08part2 :: (Instruction, Network) -> Step
 day08part2 (inst, m) = foldl1 lcm [getStepEndsWithZ m inst node | node <- startNodes]
   where
     startNodes = filter (\x -> last x == 'A') $ Map.keys m
