@@ -3,12 +3,14 @@ module Utils
     runSolution,
     testWithExample,
     runWithParser,
+    debug,
     Solution
   )
 where
 
 import Text.Printf (printf)
 import Text.ParserCombinators.Parsec (Parser, parseFromFile)
+import Debug.Trace (trace)
 
 type Solution = [String] -> Integer
 type Day = Int
@@ -36,3 +38,6 @@ runWithParser p solver fileName = do
   case result of
     Left err -> print err
     Right games -> print $ solver games
+
+debug :: c -> String -> c
+debug = flip trace
