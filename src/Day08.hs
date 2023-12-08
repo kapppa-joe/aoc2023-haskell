@@ -14,7 +14,7 @@ type Network = Map.Map Node (Node, Node)
 
 type Step = Int
 
-parseNode :: Parser (Node, Node, Node)
+parseNode :: Parser (Node, (Node, Node))
 parseNode = do
   curr <- count 3 alphaNum
   _ <- string " = ("
@@ -22,24 +22,20 @@ parseNode = do
   _ <- string ", "
   right <- count 3 alphaNum
   _ <- string ")"
-
-  return (curr, left, right)
-
-buildMap :: [(Node, Node, Node)] -> Network
-buildMap [] = Map.empty
-buildMap (x : xs) =
-  let m = buildMap xs
-      (curr, left, right) = x
-   in Map.insert curr (left, right) m
+  return (curr, (left, right))
 
 parseInput :: Parser (Instruction, Network)
 parseInput = do
   inst <- many1 $ oneOf "LR"
   skipMany1 endOfLine
   rawNetwork <- sepBy parseNode endOfLine
-  return (map readChar inst, buildMap rawNetwork)
+  return (map readChar inst, Map.fromList rawNetwork)
   where
     readChar c = read [c] :: Direction
+
+---------------
+-- Part 1
+---------------
 
 nextNode :: Network -> Node -> Direction -> Node
 nextNode m curr dir =
@@ -54,19 +50,23 @@ exploreNetwork m inst curr step =
       dir = inst !! nextDirectionIndex
    in nextNode m curr dir
 
-toIterater :: (a -> Step -> a) -> ((a, Step) -> (a, Step))
-toIterater f (curr, step) = (f curr step, step + 1)
+toIterator :: (a -> Step -> a) -> ((a, Step) -> (a, Step))
+toIterator f (curr, step) = (f curr step, step + 1)
 
 day08part1 :: (Instruction, Network) -> (Node, Step)
 day08part1 (inst, m) =
-  let explore = toIterater $ exploreNetwork m inst
+  let explore = toIterator $ exploreNetwork m inst
       start = ("AAA", 0) :: (Node, Step)
       stopCondition (node, _) = node == "ZZZ" :: Bool
    in head $ dropWhile (not . stopCondition) $ iterate explore start
 
+---------------
+-- Part 2
+---------------
+
 getStepEndsWithZ :: Network -> Instruction -> Node -> Step
 getStepEndsWithZ m inst startNode =
-  let explore = toIterater $ exploreNetwork m inst
+  let explore = toIterator $ exploreNetwork m inst
       future = iterate explore (startNode, 0) :: [(Node, Step)]
       possibleStops = filter (\(node, _) -> last node == 'Z') future :: [(Node, Step)]
    in head $ map snd possibleStops
