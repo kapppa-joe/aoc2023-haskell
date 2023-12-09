@@ -1,5 +1,5 @@
 import Data.Text (Text)
-import qualified Data.Text as T
+-- import qualified Data.Text as T
 import qualified Data.Text.IO as TextIO (readFile)
 import Data.Void
 import Text.Megaparsec hiding (State)
