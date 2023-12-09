@@ -14,13 +14,12 @@ parseNumLists = do
 extendList :: [Int] -> [Int]
 extendList [] = []
 extendList [x] = [x]
-extendList numList@(x:_)
-  | sameNumber numList = head numList : numList
+extendList numList@(x:xs)
+  | allSameNumber = x : numList
   | otherwise = (head diffedList + x) : numList
   where
     diffedList = extendList $ zipWith (-) numList (tail numList)
-    sameNumber [] = True
-    sameNumber (y:ys) = all (== y) ys
+    allSameNumber = all (== x) xs
 
 day09part1 :: [[Int]] -> Int
 day09part1 = day09part2 . map reverse
