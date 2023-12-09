@@ -1,8 +1,10 @@
+{-# LANGUAGE OverloadedStrings #-}
+
 import qualified Data.Map as Map
 import Data.Maybe (fromJust)
-import Text.Parsec
-import Text.ParserCombinators.Parsec (Parser)
-import Utils (runWithParser)
+import UtilsM (runWithParser, Parser)
+import Text.Megaparsec.Char
+import Text.Megaparsec hiding (State)
 
 data Direction = L | R deriving (Enum, Show, Read)
 
@@ -16,19 +18,19 @@ type Step = Int
 
 parseNode :: Parser (Node, (Node, Node))
 parseNode = do
-  curr <- count 3 alphaNum
+  curr <- count 3 alphaNumChar
   _ <- string " = ("
-  left <- count 3 alphaNum
+  left <- count 3 alphaNumChar
   _ <- string ", "
-  right <- count 3 alphaNum
+  right <- count 3 alphaNumChar
   _ <- string ")"
   return (curr, (left, right))
 
 parseInput :: Parser (Instruction, Network)
 parseInput = do
-  inst <- many1 $ oneOf "LR"
-  skipMany1 endOfLine
-  rawNetwork <- sepBy parseNode endOfLine
+  inst <- some $ oneOf ['L', 'R']
+  skipSome eol
+  rawNetwork <- sepBy parseNode eol
   return (map readChar inst, Map.fromList rawNetwork)
   where
     readChar c = read [c] :: Direction
