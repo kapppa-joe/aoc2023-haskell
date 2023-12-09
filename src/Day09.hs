@@ -26,8 +26,8 @@ day09part1 :: [[Int]] -> Int
 day09part1 numlists = sum [head $ extendList $ reverse ns | ns <- numlists]
 
 day09part2 :: [[Int]] -> Int
-day09part2 numlists = sum [head $ extendList ns | ns <- numlists]
+day09part2 = day09part1 . map reverse
 
 
 main :: IO ()
-main = runWithParser parseNumLists day09part1 "puzzle/09.txt"
+main = runWithParser parseNumLists day09part2 "puzzle/09.txt"
