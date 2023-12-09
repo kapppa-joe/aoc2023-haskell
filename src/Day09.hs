@@ -1,7 +1,6 @@
 import Text.Parsec
 import Text.ParserCombinators.Parsec (Parser)
 import Utils (runWithParser)
-import qualified Data.Set as Set
 
 parseNums :: Parser [Int]
 parseNums = do
@@ -16,18 +15,19 @@ extendList :: [Int] -> [Int]
 extendList [] = []
 extendList [x] = [x]
 extendList numList@(x:_)
-  | sameNumber = head numList : numList
+  | sameNumber numList = head numList : numList
   | otherwise = (head diffedList + x) : numList
   where
     diffedList = extendList $ zipWith (-) numList (tail numList)
-    sameNumber = Set.size (Set.fromList numList) == 1
+    sameNumber [] = True
+    sameNumber (y:ys) = all (== y) ys
 
 day09part1 :: [[Int]] -> Int
-day09part1 numlists = sum [head $ extendList $ reverse ns | ns <- numlists]
+day09part1 = day09part2 . map reverse
 
 day09part2 :: [[Int]] -> Int
-day09part2 = day09part1 . map reverse
+day09part2 numlists = sum [head $ extendList ns | ns <- numlists]
 
 
 main :: IO ()
-main = runWithParser parseNumLists day09part2 "puzzle/09.txt"
+main = runWithParser parseNumLists day09part1 "puzzle/09.txt"
