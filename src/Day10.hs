@@ -1,18 +1,24 @@
-import Data.List (sort, transpose)
+import Data.List (transpose)
 import qualified Data.Map as Map
-import Data.Maybe (fromJust, fromMaybe, isJust, catMaybes)
+import Data.Maybe (fromJust, fromMaybe, catMaybes)
 import qualified Data.Set as Set
-import Data.Text (Text)
-import qualified Data.Text.IO as TextIO (readFile)
-import Data.Void
 import Text.Megaparsec hiding (State)
 import Text.Megaparsec.Char
-import qualified Text.Megaparsec.Char.Lexer as L
-import UtilsM (debug, runWithParser)
+import UtilsM (debug, runWithParser, Parser)
 
-type Parser = Parsec Void Text
 
-data Tile = NS | EW | NE | NW | SW | SE | Ground | Start deriving (Eq, Ord, Enum, Show)
+data Tile = NS | EW | NE | NW | SW | SE | Ground | Start deriving (Eq, Ord, Enum)
+
+instance Show Tile where
+  show tile = case tile of 
+    NS -> "|"
+    EW -> "-"
+    NE -> "L"
+    NW -> "J"
+    SW -> "7"
+    SE -> "F"
+    Ground -> "."
+    Start -> "S"
 
 type Coord = (Int, Int)
 
@@ -65,6 +71,7 @@ moveAlongPipe m (prev, curr) =
       next = head [coord | coord <- connectedTo currTile curr, coord /= prev]
    in (curr, next)
 
+day10part1 :: Map.Map Coord Tile -> Int
 day10part1 m =
   let startLocation = head $ [coord | (coord, tile) <- Map.toList m, tile == Start]
       nexts = take 2 [coord | (coord, tile) <- Map.toList m, startLocation `elem` connectedTo tile coord]
@@ -80,55 +87,8 @@ allConnectedPipes m start next =
       endCondition (_, curr) = curr == start
    in start : map snd (takeWhile (not . endCondition) iterator)
 
-allGrounds :: PipeMaze -> [Coord]
-allGrounds m = [coord | (coord, tile) <- Map.toList m, tile == Ground]
-
-adjacentTiles :: Coord -> [Coord]
-adjacentTiles (x, y) = [(x + dx, y + dy) | (dx, dy) <- [(0, -1), (0, 1), (-1, 0), (1, 0)]]
-
-eightNeighbours :: Coord -> [Coord]
-eightNeighbours (x, y) = [(x + dx, y + dy) | (dx, dy) <- [(0, -1), (0, 1), (-1, 0), (1, 0), (-1, -1), (-1, 1), (1, -1), (1, 1)]]
-
-adjacentGrounds :: PipeMaze -> Coord -> [Coord]
-adjacentGrounds m coord =
-  [ neighbour
-    | neighbour <- adjacentTiles coord,
-      let maybeTile = Map.lookup neighbour m,
-      maybeTile == Just Ground
-  ]
-
-adjacentPipes :: PipeMaze -> Coord -> [Coord]
-adjacentPipes m coord =
-  [ neighbour
-    | neighbour <- eightNeighbours coord,
-      let maybeTile = Map.lookup neighbour m,
-      isJust maybeTile && maybeTile /= Just Ground
-  ]
-
--- note : need to dedup before counting length
-findConnectedGrounds :: PipeMaze -> [Coord] -> [Coord] -> [Coord]
-findConnectedGrounds m seen nexts
-  | null nexts = seen
-  | otherwise =
-      let notSeen = flip notElem seen
-          nexts' = filter notSeen $ concat [adjacentGrounds m coord | coord <- nexts] -- `debug` ("seen: " ++ show seen ++ ", next:" ++ show nexts)
-          seen' = seen ++ nexts
-       in findConnectedGrounds m seen' nexts'
-
-dedup :: (Ord a) => [a] -> [a]
-dedup xs = Set.toList $ Set.fromList xs
-
-findConnectedGrounds' :: PipeMaze -> Coord -> Set.Set Coord
-findConnectedGrounds' m coord = Set.fromList $ findConnectedGrounds m [] [coord]
-
-allGroundGroups :: PipeMaze -> [Set.Set Coord]
-allGroundGroups m = dedup [findConnectedGrounds' m coord | coord <- allGrounds m]
-
-surroundingPipes :: PipeMaze -> Set.Set Coord -> Set.Set Coord
-surroundingPipes m grounds = Set.fromList $ concat [adjacentPipes m ground | ground <- Set.toList grounds]
-
-fixStart :: PipeMaze -> (PipeMaze, Coord, Coord)
-fixStart m =
+patchStartingTile :: PipeMaze -> (PipeMaze, Coord, Coord)
+patchStartingTile m =
   let start@(x0, y0) = head $ [coord | (coord, tile) <- Map.toList m, tile == Start]
       nexts = take 2 [coord | (coord, tile) <- Map.toList m, start `elem` connectedTo tile coord]
       deltas = Set.fromList [(x1 - x0, y1 - y0) | (x1, y1) <- nexts]
@@ -136,88 +96,36 @@ fixStart m =
       patchedMaze = Map.insert start startTile m
    in (patchedMaze, start, head nexts)
 
-simplifyMaze :: PipeMaze -> Coord -> Coord -> PipeMaze
-simplifyMaze m start next =
+extractMainMaze :: PipeMaze -> Coord -> Coord -> PipeMaze
+extractMainMaze m start next =
   let pipeWithAnimal = Set.fromList $ allConnectedPipes m start next
    in Map.filterWithKey (\key _ -> Set.member key pipeWithAnimal) m
 
+countIntersections :: [Tile] -> Int
+countIntersections [] = 0
+countIntersections [c]
+  | c == NS = 1
+  | otherwise = 0
+countIntersections (a:b:cs)
+  | a == NE && b == SW = 1 + countIntersections cs
+  | a == SE && b == NW = 1 + countIntersections cs
+  | a == NS = 1 + countIntersections (b:cs)
+  | otherwise = countIntersections (b:cs)
 
 
-countOccurence :: (Ord a) => [a] -> Map.Map a Int
-countOccurence [] = Map.empty
-countOccurence (key : xs) =
-  let m = countOccurence xs
-   in case Map.lookup key m of
-        Nothing -> Map.insert key 1 m
-        Just _ -> Map.insertWith (+) key 1 m
-
--- countCrossingPipes :: [Tile] -> Int
--- countCrossingPipes [] = 0
--- countCrossingPipes (x:xs) =
-
-
-
--- countCrossingPipes :: PipeMaze -> Coord -> (Int, Int, Int)
--- countCrossingPipes m (x, y) =
---   let
---     pipes = catMaybes [Map.lookup (x', y) m | x' <- [1..x-1]]
---     counter = countOccurence pipes
---     countType tile = Map.findWithDefault 0 tile counter
---     verticalCrossed = countType NS
---     uShapePairs = countType NE - countType NW -- | + L - J + F - 7
---     nShapePairs = countType SE - countType SW
---     in
---       (verticalCrossed, uShapePairs, nShapePairs)
-
-
-
-day10part2 m = 
+day10part2 :: Map.Map (Int, Int) Tile -> Int
+day10part2 m =
   let
-    (patchedMaze, start, next) = fixStart m
-    simplifiedMaze = simplifyMaze patchedMaze start next
-    allGrounds' = allGrounds m
+    (patchedMaze, start, next) = patchStartingTile m
+    simplifiedMaze = extractMainMaze patchedMaze start next
+    xBound = maximum [x | (x, _) <- Map.keys m]
+    yBound = maximum [y | (_, y) <- Map.keys m]
+    allGroundTiles = [(x, y) | x <- [1..xBound], y <- [1..yBound], Map.notMember (x, y) simplifiedMaze]
+    allPipesAtWestSideOf (x, y) = relevantPipes $ catMaybes [Map.lookup (x', y) simplifiedMaze | x' <- [1..x-1]]
+    relevantPipes = filter (\tile -> tile `elem` [NS, NE, NW, SW, SE])
+    isInner = odd . countIntersections . allPipesAtWestSideOf
    in
-    [(coord, countCrossingPipes simplifiedMaze coord) | coord <- allGrounds']
-
--- Map.filterWithKey
--- allConnectedPipes m start next
-
--- addSurroundingPipes :: PipeMaze -> PipeMaze
--- addSurroundingPipes m =
---   let
---     allCoords = Map.keys m
---     xBound = maximum [x | (x, _) <- allCoords]
---     yBound = maximum [y | (_, y) <- allCoords]
---     nBorder = [(0, y) | y <- [0..yBound + 1]]  :: [Coord]
---     sBorder = [(0, y) | y <- [0..yBound + 1]]  :: [Coord]
---     eBorder = [(0, y) | y <- [0..yBound + 1]]  :: [Coord]
---     wBorder = [(0, y) | y <- [0..yBound + 1]]  :: [Coord]
---   in
---     m
-
--- day10part2 m =
---   let start = head $ [coord | (coord, tile) <- Map.toList m, tile == Start]
---       next = head [coord | (coord, tile) <- Map.toList m, start `elem` connectedTo tile coord]
---       pipeWithAnimal = Set.fromList $ allConnectedPipes m start next
---       allGroundGroups' = allGroundGroups m
---       allCoords = Map.keys m
---       xBound = maximum [x | (x, _) <- allCoords]
---       yBound = maximum [y | (_, y) <- allCoords]
---       touchingOuterBorder groundGroup = any (\(x, y) -> x == 1 || y == 1 || x == xBound || y == yBound) (Set.toList groundGroup)
---       groundGroupsNotTouchingBorder = filter (not . touchingOuterBorder) allGroundGroups'
---       enclosedGround = [groundGroup | groundGroup <- groundGroupsNotTouchingBorder, surroundingPipes m groundGroup `Set.isSubsetOf` pipeWithAnimal]
---    in m
-
---  in (surroundingPipes m $ Set.fromList [(4, 3)]) `Set.isSubsetOf` pipeWithAnimal
-
---  in [enclosedGround]
-
--- test m =
---   adjacentPipes m (1, 3)
-
--- day10part2 m = sort $ Set.toList $ Set.fromList $ findConnectedGrounds m [] [(1, 1)]
--- day10part2 m = surroundingPipes m $ Set.fromList [(3, 7), (4, 7)]
--- day10part2 m = allConnectedPipes m (2,2) (2,3)
+    length $ filter isInner allGroundTiles
 
 main :: IO ()
-main = runWithParser parseTiles day10part2 "example/10.txt"
+main = runWithParser parseTiles day10part2 "puzzle/10.txt"
