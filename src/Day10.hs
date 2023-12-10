@@ -147,9 +147,9 @@ day10part2 (PipeMaze m xBound_ yBound_) =
   let (patchedMaze, start, next) = patchStartingTile m
       simplifiedMaze = extractMainMaze patchedMaze start next
       allGroundTiles = [(x, y) | x <- [1 .. xBound_], y <- [1 .. yBound_], Map.notMember (x, y) simplifiedMaze]
-      allPipesAtWestSideOf (x, y) = filterVerticalPipes $ catMaybes [Map.lookup (x', y) simplifiedMaze | x' <- [1 .. x - 1]]
       filterVerticalPipes = filter (\tile -> tile `elem` [NS, NE, NW, SW, SE])
-      isInner = odd . countVerticalWalls . allPipesAtWestSideOf
+      allVerticalPipesAtLeftOf (x, y) = filterVerticalPipes $ catMaybes [Map.lookup (x', y) simplifiedMaze | x' <- [1 .. x - 1]]
+      isInner = odd . countVerticalWalls . allVerticalPipesAtLeftOf
    in length $ filter isInner allGroundTiles
 
 main :: IO ()
