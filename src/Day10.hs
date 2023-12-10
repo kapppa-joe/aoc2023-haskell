@@ -1,5 +1,3 @@
-{-# LANGUAGE InstanceSigs #-}
-
 import Data.List (intercalate, transpose)
 import qualified Data.Map as Map
 import Data.Maybe (catMaybes, fromJust, fromMaybe)
@@ -15,7 +13,6 @@ import UtilsM (Parser, debug, runWithParser)
 data Tile = NS | EW | NE | NW | SW | SE | Ground | Start deriving (Eq, Ord, Enum)
 
 instance Show Tile where
-  show :: Tile -> String
   show tile = case tile of
     NS -> "|"
     EW -> "-"
@@ -33,7 +30,6 @@ type PipeMap = Map.Map Coord Tile
 data PipeMaze = PipeMaze {pipeMap :: PipeMap, xBound :: Int, yBound :: Int}
 
 instance Show PipeMaze where
-  show :: PipeMaze -> String
   show (PipeMaze m xBound_ yBound_) =
     let showTile x y = show $ Map.findWithDefault Ground (x, y) m
         joinRows = intercalate "\n"
@@ -104,9 +100,9 @@ moveAlongPipe m (prev, curr) =
 day10part1 :: PipeMaze -> Int
 day10part1 (PipeMaze m _ _) =
   let startLocation = head $ [coord | (coord, tile) <- Map.toList m, tile == Start]
-      nexts = take 2 [coord | (coord, tile) <- Map.toList m, startLocation `elem` connectedTo tile coord]
+      twoWays = take 2 [coord | (coord, tile) <- Map.toList m, startLocation `elem` connectedTo tile coord]
       moveAlongPipe' = moveAlongPipe m
-      iterator = transpose [iterate moveAlongPipe' (startLocation, next) | next <- nexts]
+      iterator = transpose [iterate moveAlongPipe' (startLocation, next) | next <- twoWays]
       allTheSame xs = all (== head xs) $ tail xs
       endCondition coords = allTheSame [curr | (_, curr) <- coords] -- two trips arrive at same tile
    in length (takeWhile (not . endCondition) iterator) + 1
