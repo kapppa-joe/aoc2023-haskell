@@ -119,37 +119,37 @@ allConnectedPipes m start next =
 
 patchStartingTile :: PipeMap -> (PipeMap, Coord, Coord)
 patchStartingTile m =
-  let start@(x0, y0) = head $ [coord | (coord, tile) <- Map.toList m, tile == Start]
-      nexts = take 2 [coord | (coord, tile) <- Map.toList m, start `elem` connectedTo tile coord]
+  let startCoord@(x0, y0) = head $ [coord | (coord, tile) <- Map.toList m, tile == Start]
+      nexts = take 2 [coord | (coord, tile) <- Map.toList m, startCoord `elem` connectedTo tile coord]
       deltas = Set.fromList [(x1 - x0, y1 - y0) | (x1, y1) <- nexts]
       startTile = head $ [tile | (tile, deltaPattern) <- Map.toList connections, Set.fromList deltaPattern == deltas]
-      patchedMaze = Map.insert start startTile m
-   in (patchedMaze, start, head nexts)
+      patchedMaze = Map.insert startCoord startTile m
+   in (patchedMaze, startCoord, head nexts)
 
 extractMainMaze :: PipeMap -> Coord -> Coord -> PipeMap
 extractMainMaze m start next =
-  let pipeWithAnimal = Set.fromList $ allConnectedPipes m start next
-   in Map.filterWithKey (\key _ -> Set.member key pipeWithAnimal) m
+  let mainPipe = Set.fromList $ allConnectedPipes m start next
+   in Map.filterWithKey (\key _ -> Set.member key mainPipe) m
 
-countIntersections :: [Tile] -> Int
-countIntersections [] = 0
-countIntersections [c]
-  | c == NS = 1
+countVerticalWalls :: [Tile] -> Int
+countVerticalWalls [] = 0
+countVerticalWalls [tile]
+  | tile == NS = 1
   | otherwise = 0
-countIntersections (a : b : cs)
-  | a == NE && b == SW = 1 + countIntersections cs
-  | a == SE && b == NW = 1 + countIntersections cs
-  | a == NS = 1 + countIntersections (b : cs)
-  | otherwise = countIntersections (b : cs)
+countVerticalWalls (a : b : rest)
+  | a == NE && b == SW = 1 + countVerticalWalls rest -- L7 merge to |
+  | a == SE && b == NW = 1 + countVerticalWalls rest -- FJ merge to |
+  | a == NS = 1 + countVerticalWalls (b : rest)
+  | otherwise = countVerticalWalls (b : rest)
 
 day10part2 :: PipeMaze -> Int
 day10part2 (PipeMaze m xBound_ yBound_) =
   let (patchedMaze, start, next) = patchStartingTile m
       simplifiedMaze = extractMainMaze patchedMaze start next
       allGroundTiles = [(x, y) | x <- [1 .. xBound_], y <- [1 .. yBound_], Map.notMember (x, y) simplifiedMaze]
-      allPipesAtWestSideOf (x, y) = relevantPipes $ catMaybes [Map.lookup (x', y) simplifiedMaze | x' <- [1 .. x - 1]]
-      relevantPipes = filter (\tile -> tile `elem` [NS, NE, NW, SW, SE])
-      isInner = odd . countIntersections . allPipesAtWestSideOf
+      allPipesAtWestSideOf (x, y) = filterVerticalPipes $ catMaybes [Map.lookup (x', y) simplifiedMaze | x' <- [1 .. x - 1]]
+      filterVerticalPipes = filter (\tile -> tile `elem` [NS, NE, NW, SW, SE])
+      isInner = odd . countVerticalWalls . allPipesAtWestSideOf
    in length $ filter isInner allGroundTiles
 
 main :: IO ()
