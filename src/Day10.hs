@@ -1,16 +1,22 @@
-import Data.List (transpose)
+{-# LANGUAGE InstanceSigs #-}
+
+import Data.List (intercalate, transpose)
 import qualified Data.Map as Map
-import Data.Maybe (fromJust, fromMaybe, catMaybes)
+import Data.Maybe (catMaybes, fromJust, fromMaybe)
 import qualified Data.Set as Set
 import Text.Megaparsec hiding (State)
 import Text.Megaparsec.Char
-import UtilsM (debug, runWithParser, Parser)
+import UtilsM (Parser, debug, runWithParser)
 
+-------------------
+-- Defs and parsers
+-------------------
 
 data Tile = NS | EW | NE | NW | SW | SE | Ground | Start deriving (Eq, Ord, Enum)
 
 instance Show Tile where
-  show tile = case tile of 
+  show :: Tile -> String
+  show tile = case tile of
     NS -> "|"
     EW -> "-"
     NE -> "L"
@@ -22,7 +28,24 @@ instance Show Tile where
 
 type Coord = (Int, Int)
 
-type PipeMaze = Map.Map Coord Tile
+type PipeMap = Map.Map Coord Tile
+
+data PipeMaze = PipeMaze {pipeMap :: PipeMap, xBound :: Int, yBound :: Int}
+
+instance Show PipeMaze where
+  show :: PipeMaze -> String
+  show (PipeMaze m xBound_ yBound_) =
+    let showTile x y = show $ Map.findWithDefault Ground (x, y) m
+        joinRows = intercalate "\n"
+        tiles = joinRows [concat [showTile x y | x <- [1 .. xBound_]] | y <- [1 .. yBound_]]
+     in tiles
+
+show' :: PipeMap -> String
+show' m =
+  let xBound_ = maximum [x | (x, _) <- Map.keys m]
+      yBound_ = maximum [y | (_, y) <- Map.keys m]
+      maze = PipeMaze m xBound_ yBound_
+   in show maze
 
 parseTile :: Parser (Coord, Tile)
 parseTile = do
@@ -42,11 +65,14 @@ parseTile = do
       y = unPos line
   return ((x, y), tile)
 
-parseTiles :: Parser PipeMaze
-parseTiles = do
+parsePipeMaze :: Parser PipeMaze
+parsePipeMaze = do
   tiles <- sepBy parseTile $ optional eol
   eof
-  return $ Map.fromList tiles
+  let pipeMap_ = Map.fromList tiles
+      xBound_ = maximum [x | ((x, _), _) <- tiles]
+      yBound_ = maximum [y | ((_, y), _) <- tiles]
+  return $ PipeMaze pipeMap_ xBound_ yBound_
 
 connections :: Map.Map Tile [(Int, Int)]
 connections =
@@ -59,35 +85,43 @@ connections =
       (SE, [(0, 1), (1, 0)])
     ]
 
+---------------
+-- Part 1
+---------------
+
 connectedTo :: Tile -> Coord -> [Coord]
 connectedTo Ground _ = []
 connectedTo tile (x0, y0) = [(x0 + dx, y0 + dy) | (dx, dy) <- deltas]
   where
     deltas = fromMaybe [] (Map.lookup tile connections)
 
-moveAlongPipe :: PipeMaze -> (Coord, Coord) -> (Coord, Coord)
+moveAlongPipe :: PipeMap -> (Coord, Coord) -> (Coord, Coord)
 moveAlongPipe m (prev, curr) =
   let currTile = fromJust $ Map.lookup curr m
       next = head [coord | coord <- connectedTo currTile curr, coord /= prev]
    in (curr, next)
 
-day10part1 :: Map.Map Coord Tile -> Int
-day10part1 m =
+day10part1 :: PipeMaze -> Int
+day10part1 (PipeMaze m _ _) =
   let startLocation = head $ [coord | (coord, tile) <- Map.toList m, tile == Start]
       nexts = take 2 [coord | (coord, tile) <- Map.toList m, startLocation `elem` connectedTo tile coord]
       moveAlongPipe' = moveAlongPipe m
       iterator = transpose [iterate moveAlongPipe' (startLocation, next) | next <- nexts]
       allTheSame xs = all (== head xs) $ tail xs
-      endCondition coords = allTheSame [curr | (_, curr) <- coords]
+      endCondition coords = allTheSame [curr | (_, curr) <- coords] -- two trips arrive at same tile
    in length (takeWhile (not . endCondition) iterator) + 1
 
-allConnectedPipes :: PipeMaze -> Coord -> Coord -> [Coord]
+---------------
+-- Part 2
+---------------
+
+allConnectedPipes :: PipeMap -> Coord -> Coord -> [Coord]
 allConnectedPipes m start next =
   let iterator = iterate (moveAlongPipe m) (start, next)
       endCondition (_, curr) = curr == start
    in start : map snd (takeWhile (not . endCondition) iterator)
 
-patchStartingTile :: PipeMaze -> (PipeMaze, Coord, Coord)
+patchStartingTile :: PipeMap -> (PipeMap, Coord, Coord)
 patchStartingTile m =
   let start@(x0, y0) = head $ [coord | (coord, tile) <- Map.toList m, tile == Start]
       nexts = take 2 [coord | (coord, tile) <- Map.toList m, start `elem` connectedTo tile coord]
@@ -96,7 +130,7 @@ patchStartingTile m =
       patchedMaze = Map.insert start startTile m
    in (patchedMaze, start, head nexts)
 
-extractMainMaze :: PipeMaze -> Coord -> Coord -> PipeMaze
+extractMainMaze :: PipeMap -> Coord -> Coord -> PipeMap
 extractMainMaze m start next =
   let pipeWithAnimal = Set.fromList $ allConnectedPipes m start next
    in Map.filterWithKey (\key _ -> Set.member key pipeWithAnimal) m
@@ -106,26 +140,21 @@ countIntersections [] = 0
 countIntersections [c]
   | c == NS = 1
   | otherwise = 0
-countIntersections (a:b:cs)
+countIntersections (a : b : cs)
   | a == NE && b == SW = 1 + countIntersections cs
   | a == SE && b == NW = 1 + countIntersections cs
-  | a == NS = 1 + countIntersections (b:cs)
-  | otherwise = countIntersections (b:cs)
+  | a == NS = 1 + countIntersections (b : cs)
+  | otherwise = countIntersections (b : cs)
 
-
-day10part2 :: Map.Map (Int, Int) Tile -> Int
-day10part2 m =
-  let
-    (patchedMaze, start, next) = patchStartingTile m
-    simplifiedMaze = extractMainMaze patchedMaze start next
-    xBound = maximum [x | (x, _) <- Map.keys m]
-    yBound = maximum [y | (_, y) <- Map.keys m]
-    allGroundTiles = [(x, y) | x <- [1..xBound], y <- [1..yBound], Map.notMember (x, y) simplifiedMaze]
-    allPipesAtWestSideOf (x, y) = relevantPipes $ catMaybes [Map.lookup (x', y) simplifiedMaze | x' <- [1..x-1]]
-    relevantPipes = filter (\tile -> tile `elem` [NS, NE, NW, SW, SE])
-    isInner = odd . countIntersections . allPipesAtWestSideOf
-   in
-    length $ filter isInner allGroundTiles
+day10part2 :: PipeMaze -> Int
+day10part2 (PipeMaze m xBound_ yBound_) =
+  let (patchedMaze, start, next) = patchStartingTile m
+      simplifiedMaze = extractMainMaze patchedMaze start next
+      allGroundTiles = [(x, y) | x <- [1 .. xBound_], y <- [1 .. yBound_], Map.notMember (x, y) simplifiedMaze]
+      allPipesAtWestSideOf (x, y) = relevantPipes $ catMaybes [Map.lookup (x', y) simplifiedMaze | x' <- [1 .. x - 1]]
+      relevantPipes = filter (\tile -> tile `elem` [NS, NE, NW, SW, SE])
+      isInner = odd . countIntersections . allPipesAtWestSideOf
+   in length $ filter isInner allGroundTiles
 
 main :: IO ()
-main = runWithParser parseTiles day10part2 "puzzle/10.txt"
+main = runWithParser parsePipeMaze day10part2 "puzzle/10.txt"
