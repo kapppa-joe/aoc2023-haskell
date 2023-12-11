@@ -15,19 +15,19 @@ import Debug.Trace (trace)
 type Solution = [String] -> Integer
 type Day = Int
 
-runSolutionWithFile :: Solution -> String -> IO ()
+runSolutionWithFile :: Show a => ([String] -> a) -> FilePath -> IO ()
 runSolutionWithFile solution filename = do
   contents <- readFile filename
   let fileLines = lines contents
   let answer = solution fileLines
   print answer
 
-runSolution :: Day -> Solution -> IO ()
+runSolution :: Show a => Day -> ([String] -> a) -> IO ()
 runSolution day solution = runSolutionWithFile solution filename
   where
     filename = printf "puzzle/%02d.txt" day
 
-testWithExample :: String -> Solution -> IO ()
+testWithExample :: Show a => FilePath -> ([String] -> a) -> IO ()
 testWithExample filename solution = runSolutionWithFile solution filename'
   where
     filename' = printf "example/" ++ filename ++ ".txt"
