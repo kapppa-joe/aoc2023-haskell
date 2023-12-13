@@ -1,6 +1,6 @@
 import Data.List (intercalate)
 import Data.MemoTrie (memo2)
-import Utils (debug, runSolution, runSolutionWithFile, testWithExample)
+import Utils (runSolution)
 
 type SpringIndex = Int
 
