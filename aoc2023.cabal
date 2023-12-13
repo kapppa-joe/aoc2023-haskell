@@ -25,10 +25,10 @@ library
       base >=4.7 && <5
     , containers
     , lens
-    , memoize >1.0
     , parsec
     , text
     , megaparsec
     , parser-combinators
+    , MemoTrie
   default-language: Haskell2010
 
