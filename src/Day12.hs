@@ -1,49 +1,57 @@
+import Data.List (intercalate)
 import Data.MemoTrie (memo2)
 import Utils (debug, runSolution, runSolutionWithFile, testWithExample)
-import Data.List (intercalate)
+
+type SpringIndex = Int
+
+type NumGroupIndex = Int
 
 parseLine :: String -> (String, [Int])
 parseLine s = case words s of
   [records, numbers] -> (records, read $ "[" ++ numbers ++ "]")
   _ -> error "parse error"
 
-solveLine' :: String -> [Int] -> Int
-solveLine' = memo2 solveLine
+solveLine :: String -> [Int] -> Int
+solveLine springs number = solveLineMemo 0 0
   where
-    solveLine :: String -> [Int] -> Int
-    solveLine springs numbers =
-      case (springs, numbers) of
+    solveLine' :: SpringIndex -> NumGroupIndex -> Int
+    solveLine' a b =
+      case (drop a springs, drop b number) of
         (xs, []) -> if '#' `elem` xs then 0 else 1
         ([], _) -> 0
-        (x : xs, y : ys) ->
+        (x : xs, y : _) ->
           case x of
-            '.' -> solveLine' xs numbers
-            '#' ->
-              let (consumed, remaining) = splitAt y springs
-              in case () of
-                    _ | any (`elem` ".") consumed -> 0
-                    _ | length consumed < y -> 0
-                    _ | remaining /= [] && head remaining == '#' -> 0
-                    _ | otherwise -> solveLine' (drop 1 remaining) ys
-            '?' ->
-              solveLine' ('#' : xs) numbers + solveLine' ('.' : xs) numbers
-            _ ->
-              error "shouldn't have such char"
+            '.' -> skip
+            '#' -> take_
+            '?' -> take_ + skip
+            _ -> error "shouldn't have such char"
+          where
+            skip = solveLineMemo (a + 1) b
+            take_ =
+              let (springConsumed, remaining) = splitAt y (x : xs)
+                  springsMatchNumber
+                    | '.' `elem` springConsumed = False
+                    | length springConsumed < y = False
+                    | remaining /= [] && head remaining == '#' = False
+                    | otherwise = True
+               in if springsMatchNumber then solveLineMemo (a + y + 1) (b + 1) else 0
 
+    solveLineMemo :: Int -> Int -> Int
+    solveLineMemo = memo2 solveLine'
+
+day12part1 :: [String] -> Int
 day12part1 inputLines =
   let input = map parseLine inputLines
-   in sum $ [solveLine' springs numbers | (springs, numbers) <- input]
+   in sum [solveLine springs numbers | (springs, numbers) <- input]
 
 unfold :: (String, [Int]) -> (String, [Int])
-unfold (springs, numbers) = (intercalate "?" $ replicate 5 springs, concat $ replicate 5 numbers) 
+unfold (springs, numbers) = (intercalate "?" $ replicate 5 springs, concat $ replicate 5 numbers)
 
-day12part2 inputLines = 
-  let input = take 100 $ drop 1000 $ map (unfold . parseLine) inputLines
-   in [solveLine' springs numbers | (springs, numbers) <- input]
+day12part2 :: [String] -> Int
+day12part2 inputLines =
+  let input = map (unfold . parseLine) inputLines
+   in sum [solveLine springs numbers | (springs, numbers) <- input]
 
+main :: IO ()
 main = do
-  -- print $ solveLine "?.?" [2]
-  -- print $ solveLine "###.??????#?.?" [3,1,2,2]
-  -- print $ solveLine "#??#?.?" [2,2]
   runSolution 12 day12part2
-  -- testWithExample "12" day12part2
