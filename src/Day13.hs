@@ -1,6 +1,6 @@
 import Data.List (transpose, uncons)
 import Data.Maybe (catMaybes)
-import Utils (runSolution, testWithExample)
+import Utils (runSolution)
 
 type Pattern = [String]
 
