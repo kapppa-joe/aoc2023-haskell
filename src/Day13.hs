@@ -20,7 +20,7 @@ extractPatternAsPairs pattern x =
    in zip (concat $ reverse top) (concat bottom)
 
 countSmudge :: Pattern -> LineNumber -> Int
-countSmudge pattern x = length $ [(a, b) | (a, b) <- extractPatternAsPairs pattern x, a /= b]
+countSmudge pattern x = length [(a, b) | (a, b) <- extractPatternAsPairs pattern x, a /= b]
 
 findReflectionLine :: SmudgeCount -> Pattern -> (Maybe LineNumber, Maybe LineNumber)
 findReflectionLine n p = (findReflectionV p, findReflectionH p)
