@@ -4,65 +4,41 @@ import Utils (runSolution, testWithExample)
 
 type Pattern = [String]
 
+type SmudgeCount = Int
+
+type LineNumber = Int
+
 parsePatterns :: [String] -> [Pattern]
 parsePatterns [] = []
 parsePatterns xs =
   let (taken, rest) = span (/= "") xs
    in taken : parsePatterns (drop 1 rest)
 
-reflectionAt :: Pattern -> Int -> Bool
-reflectionAt pattern x =
+extractPatternAsPairs :: Pattern -> LineNumber -> [(Char, Char)]
+extractPatternAsPairs pattern x =
   let (top, bottom) = splitAt x pattern
-      len = minimum $ map length [top, bottom]
-      top' = take len $ reverse top
-      bottom' = take len bottom
-   in top' == bottom'
+   in zip (concat $ reverse top) (concat bottom)
 
-reflectionAt' :: Pattern -> Int -> Bool
-reflectionAt' pattern x =
-  let (top, bottom) = splitAt x pattern
-      len = minimum $ map length [top, bottom]
-      top' = concat $ take len $ reverse top
-      bottom' = concat $ take len bottom
-   in (== 1) $ length $ [(a, b) | (a, b) <- zip top' bottom', a /= b]
+countSmudge :: Pattern -> LineNumber -> Int
+countSmudge pattern x = length $ [(a, b) | (a, b) <- extractPatternAsPairs pattern x, a /= b]
 
-findReflectionH :: Pattern -> Maybe Int
-findReflectionH p = fst <$> uncons [x | x <- [1 .. length p - 1], reflectionAt p x]
+findReflectionLine :: SmudgeCount -> Pattern -> (Maybe LineNumber, Maybe LineNumber)
+findReflectionLine n p = (findReflectionV p, findReflectionH p)
+  where
+    findReflectionH p' = fst <$> uncons [x | x <- [1 .. length p' - 1], countSmudge p' x == n]
+    findReflectionV = findReflectionH . transpose
 
-findReflectionV :: Pattern -> Maybe Int
-findReflectionV = findReflectionH . transpose
-
-findReflection :: Pattern -> (Maybe Int, Maybe Int)
-findReflection p = (findReflectionV p, findReflectionH p)
+day13WithSmudgeCount :: SmudgeCount -> [String] -> Int
+day13WithSmudgeCount n input =
+  let (vLines, hLines) = unzip $ [findReflectionLine n p | p <- parsePatterns input]
+   in (sum (catMaybes hLines) * 100) + sum (catMaybes vLines)
 
 day13part1 :: [String] -> Int
-day13part1 input =
-  let (vLines, hLines) = unzip $ [findReflection p | p <- parsePatterns input]
-   in (sum (catMaybes hLines) * 100) + sum (catMaybes vLines)
-
-
-findReflectionH' :: Pattern -> Maybe Int
-findReflectionH' p = fst <$> uncons [x | x <- [1 .. length p - 1], reflectionAt' p x]
-
-findReflectionV' :: Pattern -> Maybe Int
-findReflectionV' = findReflectionH' . transpose
-
-findReflection' :: Pattern -> (Maybe Int, Maybe Int)
-findReflection' p = (findReflectionV' p, findReflectionH' p)
-
-
--- day13part2 :: [String] -> Int
--- day13part2 input = [findReflection' p | p <- parsePatterns input]
-  
+day13part1 = day13WithSmudgeCount 0
 
 day13part2 :: [String] -> Int
-day13part2 input =
-  let (vLines, hLines) = unzip $ [findReflection' p | p <- parsePatterns input]
-   in (sum (catMaybes hLines) * 100) + sum (catMaybes vLines)
+day13part2 = day13WithSmudgeCount 1
 
-  --  in (sum (catMaybes hLines) * 100) + sum (catMaybes vLines)
-
-
+main :: IO ()
 main = do
-  -- testWithExample "13" day13part2
   runSolution 13 day13part2
