@@ -8,15 +8,15 @@ type NumGroupIndex = Int
 
 parseLine :: String -> (String, [Int])
 parseLine s = case words s of
-  [records, numbers] -> (records, read $ "[" ++ numbers ++ "]")
+  [springs, numbers] -> (springs, read $ "[" ++ numbers ++ "]")
   _ -> error "parse error"
 
 solveLine :: String -> [Int] -> Int
-solveLine springs number = solveLineMemo 0 0
+solveLine springs numbers = solveLineMemo 0 0
   where
     solveLine' :: SpringIndex -> NumGroupIndex -> Int
     solveLine' a b =
-      case (drop a springs, drop b number) of
+      case (drop a springs, drop b numbers) of
         (xs, []) -> if '#' `elem` xs then 0 else 1
         ([], _) -> 0
         (x : xs, y : _) ->
@@ -34,7 +34,8 @@ solveLine springs number = solveLineMemo 0 0
                     | length springConsumed < y = False
                     | remaining /= [] && head remaining == '#' = False
                     | otherwise = True
-               in if springsMatchNumber then solveLineMemo (a + y + 1) (b + 1) else 0
+                  finishThisGroupAndSolveNext = solveLineMemo (a + y + 1) (b + 1)
+               in if springsMatchNumber then finishThisGroupAndSolveNext else 0
 
     solveLineMemo :: Int -> Int -> Int
     solveLineMemo = memo2 solveLine'
