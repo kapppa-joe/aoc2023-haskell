@@ -19,7 +19,7 @@ instance Show Platform where
   show (Platform m xBound yBound) =
     let showTile x y = Map.findWithDefault '.' (x, y) m
         joinRows = intercalate "\n"
-        tiles = joinRows [[showTile x y | x <- [1 .. xBound]] | y <- [1 .. yBound]] :: String
+        tiles = joinRows [[showTile x y | x <- [1 .. xBound]] | y <- [1 .. yBound]]
      in tiles
 
 parsePlatform :: [String] -> Platform
@@ -27,26 +27,31 @@ parsePlatform s =
   let xBound = length $ head s
       yBound = length s
       coords = [(x, y) | x <- [1 .. xBound], y <- [1 .. yBound]]
-      parsedMap = Map.fromList [((x, y), obj) | (x, y) <- coords, let obj = s !! (y - 1) !! (x - 1), obj /= '.']
+      parsedMap =
+        Map.fromList
+          [ ((x, y), obj)
+            | (x, y) <- coords,
+              let obj = s !! (y - 1) !! (x - 1),
+              obj /= '.'
+          ]
    in Platform parsedMap xBound yBound
 
 slideOneRow :: [Maybe Char] -> [Maybe Char]
 slideOneRow [] = []
 slideOneRow (Just '#' : xs) = Just '#' : slideOneRow xs
 slideOneRow v =
-  let (rolling, rest) = span (/= Just '#') v
-      countRoundRocks = length [x | x <- rolling, x == Just 'O']
-      rolled = replicate (length rolling - countRoundRocks) Nothing ++ replicate countRoundRocks (Just 'O')
-   in rolled ++ slideOneRow rest
+  let (rollingZone, rest) = span (/= Just '#') v
+      roundRocks = length [x | x <- rollingZone, x == Just 'O']
+      rollResult = replicate (length rollingZone - roundRocks) Nothing ++ replicate roundRocks (Just 'O')
+   in rollResult ++ slideOneRow rest
 
 newRockPositionsInRow :: RockMap -> [Coord] -> [(Coord, Char)]
 newRockPositionsInRow m coords =
-  let row = [Map.lookup coord m | coord <- coords] :: [Maybe Char]
-      afterSlide = slideOneRow row
+  let rowAfterSlide = slideOneRow [Map.lookup coord m | coord <- coords]
       filterEmpty coord maybeRock = case maybeRock of
         Just rock -> Just (coord, rock)
         Nothing -> Nothing
-   in catMaybes $ zipWith filterEmpty coords afterSlide
+   in catMaybes $ zipWith filterEmpty coords rowAfterSlide
 
 listCoordsTowards :: Direction -> Platform -> [[Coord]]
 listCoordsTowards direction (Platform _ xBound yBound) =
@@ -58,8 +63,8 @@ listCoordsTowards direction (Platform _ xBound yBound) =
 
 tilt :: Direction -> Platform -> Platform
 tilt direction p@(Platform r x y) =
-  let coordLists = listCoordsTowards direction p
-      updatedMapList = concatMap (newRockPositionsInRow r) coordLists
+  let rows = listCoordsTowards direction p
+      updatedMapList = concatMap (newRockPositionsInRow r) rows
    in Platform (Map.fromList updatedMapList) x y
 
 totalLoad :: Platform -> Int
