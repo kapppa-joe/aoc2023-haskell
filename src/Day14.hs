@@ -36,25 +36,25 @@ parsePlatform s =
           ]
    in Platform parsedMap xBound yBound
 
-slideOneRow :: [Maybe Char] -> [Maybe Char]
-slideOneRow [] = []
-slideOneRow (Just '#' : xs) = Just '#' : slideOneRow xs
-slideOneRow v =
+slideForward :: [Maybe Char] -> [Maybe Char]
+slideForward [] = []
+slideForward (Just '#' : xs) = Just '#' : slideForward xs
+slideForward v =
   let (rollingZone, rest) = span (/= Just '#') v
       roundRocks = length [x | x <- rollingZone, x == Just 'O']
       rollResult = replicate (length rollingZone - roundRocks) Nothing ++ replicate roundRocks (Just 'O')
-   in rollResult ++ slideOneRow rest
+   in rollResult ++ slideForward rest
 
-newRockPositionsInRow :: RockMap -> [Coord] -> [(Coord, Char)]
-newRockPositionsInRow m coords =
-  let rowAfterSlide = slideOneRow [Map.lookup coord m | coord <- coords]
+slideOneRow :: RockMap -> [Coord] -> [(Coord, Char)]
+slideOneRow m coords =
+  let rowAfterSlide = slideForward [Map.lookup coord m | coord <- coords]
       filterEmpty coord maybeRock = case maybeRock of
         Just rock -> Just (coord, rock)
         Nothing -> Nothing
    in catMaybes $ zipWith filterEmpty coords rowAfterSlide
 
-listCoordsTowards :: Direction -> Platform -> [[Coord]]
-listCoordsTowards direction (Platform _ xBound yBound) =
+rowsFacing :: Direction -> Platform -> [[Coord]]
+rowsFacing direction (Platform _ xBound yBound) =
   case direction of
     North -> [[(x, y) | y <- reverse [1 .. yBound]] | x <- [1 .. xBound]]
     South -> [[(x, y) | y <- [1 .. yBound]] | x <- [1 .. xBound]]
@@ -63,8 +63,8 @@ listCoordsTowards direction (Platform _ xBound yBound) =
 
 tilt :: Direction -> Platform -> Platform
 tilt direction p@(Platform r x y) =
-  let rows = listCoordsTowards direction p
-      updatedMapList = concatMap (newRockPositionsInRow r) rows
+  let rows = rowsFacing direction p
+      updatedMapList = concatMap (slideOneRow r) rows
    in Platform (Map.fromList updatedMapList) x y
 
 totalLoad :: Platform -> Int
