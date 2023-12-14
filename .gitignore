@@ -6,3 +6,4 @@ app/
 memo.txt
 dist-newstyle/
 .vscode
+bin/
