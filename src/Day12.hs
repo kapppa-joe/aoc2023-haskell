@@ -1,5 +1,6 @@
 import Data.List (intercalate)
-import Data.MemoTrie (memo2)
+import Data.Array (Array, (!))
+import qualified Data.Array as Array
 import Utils (runSolution)
 
 type SpringIndex = Int
@@ -12,8 +13,14 @@ parseLine s = case words s of
   _ -> error "parse error"
 
 solveLine :: String -> [Int] -> Int
-solveLine springs numbers = solveLineMemo 0 0
+solveLine springs numbers = memo ! (0, 0)
   where
+    memo :: Array (Int, Int) Int
+    memo = Array.array ((0, 0), (s, n)) [((a, b), solveLine' a b) | a <- [0..s], b <- [0..n]]
+      where
+        s = length springs + 1
+        n = length numbers + 1
+
     solveLine' :: SpringIndex -> NumGroupIndex -> Int
     solveLine' a b =
       case (drop a springs, drop b numbers) of
@@ -26,7 +33,7 @@ solveLine springs numbers = solveLineMemo 0 0
             '?' -> take_ + skip
             _ -> error "shouldn't have such char"
           where
-            skip = solveLineMemo (a + 1) b
+            skip = memo ! (a + 1, b)
             take_ =
               let (springConsumed, remaining) = splitAt y (x : xs)
                   springsMatchNumber
@@ -34,11 +41,8 @@ solveLine springs numbers = solveLineMemo 0 0
                     | length springConsumed < y = False
                     | remaining /= [] && head remaining == '#' = False
                     | otherwise = True
-                  finishThisGroupAndSolveNext = solveLineMemo (a + y + 1) (b + 1)
+                  finishThisGroupAndSolveNext = memo ! (a + y + 1, b + 1)
                in if springsMatchNumber then finishThisGroupAndSolveNext else 0
-
-    solveLineMemo :: Int -> Int -> Int
-    solveLineMemo = memo2 solveLine'
 
 day12part1 :: [String] -> Int
 day12part1 inputLines =
