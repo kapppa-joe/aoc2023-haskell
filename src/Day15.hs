@@ -57,8 +57,11 @@ assignLens lens@(label, _) xs =
 
 operate :: HASHMAP -> Operation -> HASHMAP
 operate m op = case op of
-  Assign lens@(label, _) -> m // [(hash label, assignLens lens (m ! hash label))]
-  Remove label -> m // [(hash label, removeLens label (m ! hash label))]
+  Assign lens@(label, _) -> updateBox label $ assignLens lens (getbox label)
+  Remove label -> updateBox label $ removeLens label (getbox label)
+  where
+    getbox label = m ! hash label
+    updateBox label lenses = m // [(hash label, lenses)]
 
 focusingPower :: HASHMAP -> Int
 focusingPower m = sum [getPower boxNum lenses | (boxNum, lenses) <- Array.assocs m]
