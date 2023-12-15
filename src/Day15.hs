@@ -1,5 +1,6 @@
+import Data.Array (Array, (!), (//))
+import qualified Data.Array as Array
 import Data.Char (ord)
-import qualified Data.Map as Map
 import Utils (runSolution, testWithExample)
 
 splitOn :: Char -> String -> [String]
@@ -30,7 +31,7 @@ type FocalLength = Int
 
 type Lens = (Label, FocalLength)
 
-type LensBoxes = Map.Map Int [Lens]
+type HASHMAP = Array Int [Lens]
 
 data Operation = Assign Lens | Remove Label
 
@@ -41,41 +42,36 @@ parseOperation s =
     [xs] -> Remove $ takeWhile (/= '-') xs
     _ -> error "fail to parse operation"
 
-parseInput' :: [String] -> [Operation]
-parseInput' = map parseOperation . parseInput
+parseOperations :: [String] -> [Operation]
+parseOperations = map parseOperation . parseInput
 
-removeLens :: Label -> Maybe [Lens] -> Maybe [Lens]
-removeLens label xs = case xs of
-  Nothing -> Nothing
-  Just x@[(label', _)] -> if label == label' then Nothing else Just x
-  Just x ->
-    let (a, b) = break ((== label) . fst) x
-     in Just (a ++ drop 1 b)
+removeLens :: Label -> [Lens] -> [Lens]
+removeLens label xs =
+  let (a, b) = break ((== label) . fst) xs
+   in (a ++ drop 1 b)
 
-assignLens :: Lens -> Maybe [Lens] -> Maybe [Lens]
-assignLens lens@(label, _) xs = case xs of
-  Nothing -> Just [lens]
-  Just x ->
-    let (a, b) = break ((== label) . fst) x
-     in Just (a ++ (lens : drop 1 b))
+assignLens :: Lens -> [Lens] -> [Lens]
+assignLens lens@(label, _) xs =
+  let (a, b) = break ((== label) . fst) xs
+   in a ++ (lens : drop 1 b)
 
-runHash :: LensBoxes -> Operation -> LensBoxes
-runHash m (Remove label) = Map.alter (removeLens label) (hash label) m
-runHash m (Assign lens) = Map.alter (assignLens lens) (hash $ fst lens) m
+operate :: HASHMAP -> Operation -> HASHMAP
+operate m op = case op of
+  Assign lens@(label, _) -> m // [(hash label, assignLens lens (m ! hash label))]
+  Remove label -> m // [(hash label, removeLens label (m ! hash label))]
 
-focusingPower :: LensBoxes -> Int
-focusingPower m = sum [getPower boxNum lenses | (boxNum, lenses) <- Map.toList m]
+focusingPower :: HASHMAP -> Int
+focusingPower m = sum [getPower boxNum lenses | (boxNum, lenses) <- Array.assocs m]
   where
-    getPower boxNum xs =
-      (boxNum + 1) * sum [index * focalLength | (index, (_, focalLength)) <- zip [1 ..] xs]
+    getPower boxNum lenses =
+      (boxNum + 1) * sum [idx * focalLength | (idx, (_, focalLength)) <- zip [1 ..] lenses]
 
 day15part2 :: [String] -> Int
-day15part2 input = focusingPower $ foldl runHash Map.empty operations
+day15part2 input = focusingPower $ foldl operate emptyBoxes operations
   where
-    operations = parseInput' input
+    emptyBoxes = Array.listArray (0, 256) $ repeat [] :: HASHMAP
+    operations = parseOperations input
 
 main :: IO ()
 main = do
   runSolution 15 day15part2
-
--- testWithExample "15" day15part2
