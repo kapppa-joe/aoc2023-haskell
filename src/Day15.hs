@@ -72,7 +72,7 @@ focusingPower m = sum [getPower boxNum lenses | (boxNum, lenses) <- Array.assocs
 day15part2 :: [String] -> Int
 day15part2 input = focusingPower $ foldl operate emptyBoxes operations
   where
-    emptyBoxes = Array.listArray (0, 256) $ repeat [] :: HASHMAP
+    emptyBoxes = Array.listArray (0, 255) $ repeat [] :: HASHMAP
     operations = parseOperations input
 
 main :: IO ()
