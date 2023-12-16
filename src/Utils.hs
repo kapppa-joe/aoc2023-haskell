@@ -2,6 +2,7 @@ module Utils
   ( runSolutionWithFile,
     runSolution,
     testWithExample,
+    testWithExample',
     runWithParser,
     debug,
     Solution
@@ -22,6 +23,13 @@ runSolutionWithFile solution filename = do
   let answer = solution fileLines
   print answer
 
+
+runSolutionWithFile' :: ([String] -> IO()) -> FilePath -> IO ()
+runSolutionWithFile' solveAndPrint filename = do
+  contents <- readFile filename
+  let fileLines = lines contents
+  solveAndPrint fileLines
+
 runSolution :: Show a => Day -> ([String] -> a) -> IO ()
 runSolution day solution = runSolutionWithFile solution filename
   where
@@ -29,6 +37,12 @@ runSolution day solution = runSolutionWithFile solution filename
 
 testWithExample :: Show a => FilePath -> ([String] -> a) -> IO ()
 testWithExample filename solution = runSolutionWithFile solution filename'
+  where
+    filename' = printf "example/" ++ filename ++ ".txt"
+
+
+testWithExample' :: FilePath -> ([String] -> IO ()) -> IO ()
+testWithExample' filename solution = runSolutionWithFile' solution filename'
   where
     filename' = printf "example/" ++ filename ++ ".txt"
 
