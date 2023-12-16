@@ -35,8 +35,8 @@ printCavern cavern =
       showGrid g = gridChars !! fromEnum g
    in putStrLn $ intercalate "\n" [[showGrid $ cavern IA.! (x, y) | x <- [1 .. xBound]] | y <- [1 .. yBound]]
 
-parseGrid :: [String] -> Cavern
-parseGrid input = IA.listArray ((1, 1), (xBound, yBound)) $ map readChar $ concat $ transpose input
+parseCavern :: [String] -> Cavern
+parseCavern input = IA.listArray ((1, 1), (xBound, yBound)) $ map readChar $ concat $ transpose input
   where
     xBound = length $ head input
     yBound = length input
@@ -89,7 +89,7 @@ part2StartingPoints (xBound, yBound) =
 day16 :: ((Int, Int) -> [Cursor]) -> [String] -> Int
 day16 f input = maximum $ [length $ energizedTiles startingPoint | startingPoint <- startingPoints]
   where
-    cavern = parseGrid input
+    cavern = parseCavern input
     (xBound, yBound) = bounds cavern
     startingPoints = f (xBound, yBound)
 

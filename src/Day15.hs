@@ -1,7 +1,7 @@
 import Data.Array (Array, (!), (//))
 import qualified Data.Array as Array
 import Data.Char (ord)
-import Utils (runSolution, testWithExample)
+import Utils (runSolution)
 
 splitOn :: Char -> String -> [String]
 splitOn c s = case dropWhile (== c) s of

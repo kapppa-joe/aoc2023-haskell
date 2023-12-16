@@ -1,6 +1,6 @@
 import Data.List (transpose)
 import qualified Data.Set as Set
-import Utils (runSolution, runSolutionWithFile, testWithExample)
+import Utils (runSolution)
 
 findEmptyRows :: [String] -> [Int]
 findEmptyRows rows = [i + 1 | i <- [0 .. length rows - 1], all (== '.') $ rows !! i]

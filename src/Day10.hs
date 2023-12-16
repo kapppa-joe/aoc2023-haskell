@@ -4,7 +4,7 @@ import Data.Maybe (catMaybes, fromJust, fromMaybe)
 import qualified Data.Set as Set
 import Text.Megaparsec hiding (State)
 import Text.Megaparsec.Char
-import UtilsM (Parser, debug, runWithParser)
+import UtilsM (Parser, runWithParser)
 
 -------------------
 -- Defs and parsers
