@@ -4,25 +4,30 @@
 import qualified Data.Array.IArray as IA
 import Data.List (elemIndex, intercalate, transpose)
 import qualified Data.Set as Set
-import Utils (testWithExample, testWithExample', runSolution)
+import Utils (runSolution)
 
-data Grid = Empty | MirrorNE | MirrorSE | SplitterV | SplitterH deriving (Eq, Ord, Enum)
+data Object = Empty | MirrorNE | MirrorSE | SplitterV | SplitterH deriving (Eq, Ord, Enum)
 
 gridChars :: [Char]
 gridChars = "./\\|-"
 
-instance Show Grid where
+instance Show Object where
   show g = [gridChars !! fromEnum g]
 
-data Direction = North | East | South | West deriving (Eq, Ord, Enum, Show)
+data Direction = North | East | South | West deriving (Eq, Ord, Enum, Show, IA.Ix)
 
 type Coord = (Int, Int)
 
-type Cavern = IA.Array Coord Grid
+type Cavern = IA.Array Coord Object
 
-type BeamHead = (Coord, Direction)
+type Cursor = (Coord, Direction)
 
-data BeamPaths = BeamPaths {heads :: [BeamHead], seen :: Set.Set BeamHead, energized :: Set.Set Coord} deriving (Show)
+data BeamTrace = BeamTrace {cursors :: [Cursor], seen :: Set.Set Cursor, energized :: Set.Set Coord} deriving (Show)
+
+bounds :: Cavern -> Coord
+bounds cavern = (xBound, yBound)
+  where
+    ((_, _), (xBound, yBound)) = IA.bounds cavern
 
 printCavern :: Cavern -> IO ()
 printCavern cavern =
@@ -35,13 +40,13 @@ parseGrid input = IA.listArray ((1, 1), (xBound, yBound)) $ map readChar $ conca
   where
     xBound = length $ head input
     yBound = length input
-    readChar :: Char -> Grid
+    readChar :: Char -> Object
     readChar c = case c `elemIndex` gridChars of
       Just g -> toEnum g
       Nothing -> error "failed to parse grid"
 
-travel :: Cavern -> BeamHead -> [Coord]
-travel c ((x0, y0), dir) =
+ahead :: Cavern -> Cursor -> [Coord]
+ahead c ((x0, y0), dir) =
   case dir of
     North -> [(x0, y) | y <- reverse [1 .. y0 - 1]]
     South -> [(x0, y) | y <- [y0 + 1 .. yBound]]
@@ -50,49 +55,64 @@ travel c ((x0, y0), dir) =
   where
     (_, (xBound, yBound)) = IA.bounds c
 
-changeDir :: Coord -> Direction -> Grid -> [BeamHead]
-changeDir coord dir grid = [(coord, newDir) | newDir <- getNewDirections]
+changeDir :: Coord -> Direction -> Object -> [Cursor]
+changeDir coord dir obj = [(coord, newDir) | newDir <- getNewDirections]
   where
     getNewDirections =
-      case grid of
+      case obj of
         MirrorNE -> [[East, North, West, South] !! fromEnum dir]
         MirrorSE -> [[West, South, East, North] !! fromEnum dir]
         SplitterV -> if dir `elem` [West, East] then [North, South] else [dir]
         SplitterH -> if dir `elem` [North, South] then [East, West] else [dir]
-        _ -> error "something went wrong"
+        _ -> error $ "something went wrong. params:" ++ show (coord, dir, obj)
 
-processBeam :: Cavern -> BeamHead -> BeamPaths
-processBeam cavern b@(_, dir) =
-  let (travelled, stop) = span ((== Empty) . snd) [(coord', cavern IA.! coord') | coord' <- travel cavern b]
+tick :: Cavern -> Cursor -> BeamTrace
+tick cavern b@(_, dir) =
+  let (travelled, stop) = span ((== Empty) . snd) [(coord', cavern IA.! coord') | coord' <- ahead cavern b]
    in case (travelled, stop) of
-        (t, []) -> BeamPaths [] (Set.singleton b) (Set.fromList $ map fst t)
-        (t, (coord'', obstacle) : _) ->
-          let newBeamHeads = changeDir coord'' dir obstacle
+        (t, []) -> BeamTrace [] (Set.singleton b) (Set.fromList $ map fst t)
+        (t, (coord'', obj) : _) ->
+          let newCursors = changeDir coord'' dir obj
               energized = Set.fromList (coord'' : map fst t)
-           in BeamPaths newBeamHeads (Set.singleton b) energized
+           in BeamTrace newCursors (Set.singleton b) energized
 
-processBeamPaths :: Cavern -> BeamPaths -> BeamPaths
-processBeamPaths cavern BeamPaths {heads, seen, energized} =
-  let results = map (processBeam cavern) heads
-      energized' = Set.unions $ energized : [path.energized | path <- results]
-      seen' = Set.unions $ seen : [path.seen | path <- results]
-      heads' = Set.fromList $ concat [path.heads | path <- results]
-      newHeads = Set.toList $ Set.difference heads' seen'
-   in BeamPaths newHeads seen' energized'
+part1StartingPoints :: (Int, Int) -> [Cursor]
+part1StartingPoints _ = [((0, 1), East)]
 
+part2StartingPoints :: (Int, Int) -> [Cursor]
+part2StartingPoints (xBound, yBound) =
+  [((0, y), East) | y <- [1 .. yBound]]
+    ++ [((x, 0), South) | x <- [1 .. xBound]]
+    ++ [((xBound + 1, y), West) | y <- [1 .. yBound]]
+    ++ [((x, yBound + 1), North) | x <- [1 .. xBound]]
 
+day16 :: ((Int, Int) -> [Cursor]) -> [String] -> Int
+day16 f input = maximum $ [length $ energizedTiles startingPoint | startingPoint <- startingPoints]
+  where
+    cavern = parseGrid input
+    (xBound, yBound) = bounds cavern
+    startingPoints = f (xBound, yBound)
 
+    traceOnce :: BeamTrace -> BeamTrace
+    traceOnce BeamTrace {cursors, seen, energized} =
+      let results = map (tick cavern) cursors
+          energized' = Set.unions $ energized : [path.energized | path <- results]
+          seen' = Set.unions $ seen : [path.seen | path <- results]
+          cursors' = Set.fromList $ concat [path.cursors | path <- results]
+          newCursors = Set.toList $ Set.difference cursors' seen'
+       in BeamTrace newCursors seen' energized'
 
--- BeamPath [] Set.empty Set.empty
+    energizedTiles :: Cursor -> Set.Set Coord
+    energizedTiles cursor =
+      let iter = iterate traceOnce $ BeamTrace [cursor] Set.empty Set.empty
+       in energized . head $ dropWhile (not . null . cursors) iter
 
--- day16Part1 :: [String] -> Int
-day16Part1 :: [String] -> Int
-day16Part1 input =
-  let cavern = parseGrid input
-      initial = BeamPaths [((0, 1), East)] Set.empty Set.empty
-      iter = iterate (processBeamPaths cavern) initial
-    in head $ [length step.energized | step <- iter, null step.heads]
+day16part1 :: [String] -> Int
+day16part1 = day16 part1StartingPoints
 
+day16part2 :: [String] -> Int
+day16part2 = day16 part2StartingPoints
+
+main :: IO ()
 main = do
-  runSolution 16 day16Part1
-  -- testWithExample "16" day16Part1
+  runSolution 16 day16part1
