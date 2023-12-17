@@ -25,6 +25,7 @@ library
       base >=4.7 && <5
     , array
     , containers
+    , heap
     , lens
     , parsec
     , text
