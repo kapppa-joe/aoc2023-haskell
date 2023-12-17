@@ -45,7 +45,7 @@ backturn :: Direction -> Direction
 backturn (a, b) = ((-1) * a, (-1) * b)
 
 heatlossInMove :: Grid -> Coord -> Coord -> HeatLoss 
--- Only for calculating straight line motionsAssume
+-- Only for calculating straight line motions
 heatlossInMove grid start end = sum [grid IA.! c | c <- travelled]
   where
     travelled = if start < end then tail $ range (start, end) else init $ range (end, start)
@@ -60,13 +60,13 @@ shortestDist grid start minMove maxMove = heatloss $ shortestDist' initQueue ini
     shortestDist' :: PrioQueue -> Seen -> State
     shortestDist' queue seen
       | currState.coord == goal = currState
-      | alreadySaw currState = shortestDist' queue' seen
+      | hasSeen currState = shortestDist' queue' seen
       | otherwise = processNext
       where
         (currState, queue') = pop queue
 
-        alreadySaw :: State -> Bool
-        alreadySaw state = Set.member (state.coord, state.prevMove) seen
+        hasSeen :: State -> Bool
+        hasSeen state = Set.member (state.coord, state.prevMove) seen
 
         processNext =
           let (x0, y0) = currState.coord
@@ -100,4 +100,4 @@ day17part2 input = shortestDist grid (1, 1) 4 10
 
 main :: IO ()
 main = do
-  runSolution 17 day17part1
+  runSolution 17 day17part2

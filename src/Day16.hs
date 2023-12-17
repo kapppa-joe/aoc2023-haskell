@@ -115,4 +115,4 @@ day16part2 = day16 part2StartingPoints
 
 main :: IO ()
 main = do
-  runSolution 16 day16part1
+  runSolution 16 day16part2
