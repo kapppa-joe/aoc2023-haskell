@@ -18,7 +18,7 @@ type Direction = (Int, Int)
 
 type PrevMove = Direction
 
-data State = State {heatloss :: HeatLoss, coord :: Coord, prevMove :: PrevMove, taken :: [Coord]} deriving (Eq, Ord, Show)
+data State = State {heatloss :: HeatLoss, coord :: Coord, prevMove :: PrevMove, stepsTaken :: [Coord]} deriving (Eq, Ord, Show)
 
 type State' = (HeatLoss, State)
 
@@ -81,7 +81,7 @@ shortestDist grid start minMove maxMove = heatloss $ shortestDist' initQueue ini
                     Set.notMember ((x, y), (dx, dy)) seen
                 ]
               nextStates =
-                [ (heatloss', State heatloss' newPos move (newPos : currState.taken))
+                [ (heatloss', State heatloss' newPos move (newPos : currState.stepsTaken))
                   | (newPos, move) <- nextMoves,
                     let heatloss' = heatlossInMove grid currState.coord newPos + currState.heatloss
                 ]
