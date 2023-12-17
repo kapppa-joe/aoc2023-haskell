@@ -35,7 +35,7 @@ parseInput s = IA.listArray ((1, 1), (xBound, yBound)) $ map readChar $ concat $
 
 pop :: PrioQueue -> (State, PrioQueue)
 pop queue = case Heap.view queue of
-  Nothing -> error "something went wrong"
+  Nothing -> error "no path to goal"
   Just ((_, state), queue') -> (state, queue')
 
 directions :: [Direction]
@@ -44,7 +44,8 @@ directions = [(0, 1), (0, -1), (-1, 0), (1, 0)]
 backturn :: Direction -> Direction
 backturn (a, b) = ((-1) * a, (-1) * b)
 
-heatlossInMove :: Grid -> Coord -> Coord -> HeatLoss -- Assume straight line motion only
+heatlossInMove :: Grid -> Coord -> Coord -> HeatLoss 
+-- Only for calculating straight line motionsAssume
 heatlossInMove grid start end = sum [grid IA.! c | c <- travelled]
   where
     travelled = if start < end then tail $ range (start, end) else init $ range (end, start)
@@ -59,13 +60,17 @@ shortestDist grid start minMove maxMove = heatloss $ shortestDist' initQueue ini
     shortestDist' :: PrioQueue -> Seen -> State
     shortestDist' queue seen
       | currState.coord == goal = currState
-      | Set.member (currState.coord, currState.prevMove) seen = shortestDist' queue' seen
-      | otherwise = goNext
+      | alreadySaw currState = shortestDist' queue' seen
+      | otherwise = processNext
       where
         (currState, queue') = pop queue
-        goNext =
+
+        alreadySaw :: State -> Bool
+        alreadySaw state = Set.member (state.coord, state.prevMove) seen
+
+        processNext =
           let (x0, y0) = currState.coord
-              newSeen = Set.insert (currState.coord, currState.prevMove) seen
+              updatedSeen = Set.insert (currState.coord, currState.prevMove) seen
               allowedDirs = [dir | dir <- directions, dir /= currState.prevMove, dir /= backturn currState.prevMove]
               nextMoves =
                 [ ((x, y), (dx, dy))
@@ -80,8 +85,8 @@ shortestDist grid start minMove maxMove = heatloss $ shortestDist' initQueue ini
                   | (newPos, move) <- nextMoves,
                     let heatloss' = heatlossInMove grid currState.coord newPos + currState.heatloss
                 ]
-              newQueue = foldl (flip Heap.insert) queue' nextStates
-           in shortestDist' newQueue newSeen
+              updatedQueue = foldl (flip Heap.insert) queue' nextStates
+           in shortestDist' updatedQueue updatedSeen
 
 day17part1 :: [String] -> HeatLoss
 day17part1 input = shortestDist grid (1, 1) 1 3
