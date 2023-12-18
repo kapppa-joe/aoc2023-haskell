@@ -44,18 +44,20 @@ directions = [(0, 1), (0, -1), (-1, 0), (1, 0)]
 backturn :: Direction -> Direction
 backturn (a, b) = ((-1) * a, (-1) * b)
 
-heatlossInMove :: Grid -> Coord -> Coord -> HeatLoss 
+heatlossInMove :: Grid -> Coord -> Coord -> HeatLoss
 -- Only for calculating straight line motions
 heatlossInMove grid start end = sum [grid IA.! c | c <- travelled]
   where
-    travelled = if start < end then tail $ range (start, end) else init $ range (end, start)
+    travelled
+      | start < end = tail $ range (start, end)
+      | otherwise = init $ range (end, start)
 
-shortestDist :: Grid -> Coord -> Int -> Int -> HeatLoss
-shortestDist grid start minMove maxMove = heatloss $ shortestDist' initQueue initSeen
+shortestDist :: Grid -> Int -> Int -> HeatLoss
+shortestDist grid minMove maxMove = heatloss $ shortestDist' initQueue initSeen
   where
+    (start, goal) = IA.bounds grid
     initQueue = Heap.singleton (0, State 0 start (0, 0) [])
     initSeen = Set.empty
-    goal = snd $ IA.bounds grid
 
     shortestDist' :: PrioQueue -> Seen -> State
     shortestDist' queue seen
@@ -89,12 +91,12 @@ shortestDist grid start minMove maxMove = heatloss $ shortestDist' initQueue ini
            in shortestDist' updatedQueue updatedSeen
 
 day17part1 :: [String] -> HeatLoss
-day17part1 input = shortestDist grid (1, 1) 1 3
+day17part1 input = shortestDist grid 1 3
   where
     grid = parseInput input
 
 day17part2 :: [String] -> HeatLoss
-day17part2 input = shortestDist grid (1, 1) 4 10
+day17part2 input = shortestDist grid 4 10
   where
     grid = parseInput input
 
