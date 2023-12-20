@@ -61,5 +61,6 @@ day18part2 :: [String] -> Int
 day18part2 = day18 snd
 
 
+main :: IO ()
 main = do
   runSolution 18 day18part2

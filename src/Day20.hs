@@ -6,7 +6,7 @@ import Data.Maybe (fromJust, fromMaybe)
 import Data.Sequence.FastQueue (ViewL ((:<)))
 import qualified Data.Sequence.FastQueue as Q
 import qualified Data.Set as Set
-import Utils (debug, runSolution, testWithExample)
+import Utils (runSolution)
 
 data PulseType = High | Low deriving (Eq, Enum, Show)
 
@@ -16,17 +16,23 @@ type From = Label
 
 type To = Label
 
+type SignalSources = Set.Set From
+
 type Destinations = [To]
 
 type Pulse = (PulseType, From, To)
 
-data Module = FlipFlop Destinations | Conjunction (Set.Set From) Destinations | Other Destinations deriving (Eq, Show)
+data Module = FlipFlop Destinations | Conjunction SignalSources Destinations | Other Destinations deriving (Eq, Show)
 
 type Modules = Map.Map Label Module
 
 type FlipFlopState = Set.Set Label -- store flipflops which are ON
 
-type ConjunctionState = Map.Map Label (Set.Set Label) -- store source module which were High
+type ConjunctionMemory = Set.Set Label -- store source module which were High
+
+type ConjunctionState = Map.Map Label ConjunctionMemory
+
+type CycleCounter = Map.Map Label Int -- for part 2, to keep track of precursor triggered
 
 data State = State
   { ffstate :: FlipFlopState,
@@ -50,14 +56,9 @@ parseModules input = storeSenderForConjunctions $ Map.fromList $ map parseModule
       [label, dest] -> (label, Other (splitOn ", " dest))
       _ -> error "failed to parse input"
 
-    -- isConjunction :: Module -> Bool
-    -- isConjunction (Conjunction _ _) = True
-    -- isConjunction _ = False
-
     storeSenderForConjunctions :: Modules -> Modules
     storeSenderForConjunctions m = Map.mapWithKey updateConjunction m
       where
-        -- allConjunctions = [label | (label, module_) <- Map.toList m, isConjunction  module_]
         allPairs = [(sender, receiver) | (sender, module_) <- Map.toList m, receiver <- getDestinations module_]
         reverseMap = Map.fromListWith Set.union [(receiver, Set.singleton sender) | (sender, receiver) <- allPairs]
 
@@ -72,84 +73,84 @@ getDestinations (FlipFlop dests) = dests
 getDestinations (Other dests) = dests
 getDestinations (Conjunction _ dests) = dests
 
-toggle :: Set.Set Label -> Label -> Set.Set Label
+toggle :: FlipFlopState -> Label -> FlipFlopState
 toggle set label =
   if Set.member label set
     then Set.delete label set
     else Set.insert label set
 
-updateMemory :: Set.Set Label -> Label -> PulseType -> Set.Set Label
+updateMemory :: ConjunctionMemory -> Label -> PulseType -> ConjunctionMemory
 updateMemory mem sender pulseType = case pulseType of
   High -> Set.insert sender mem
   Low -> Set.delete sender mem
 
 processPulse :: Modules -> Label -> State -> Pulse -> (State, [Pulse])
-processPulse m moduleToWatch st (pulseType, sender, curr) =
-  case Map.lookup curr m of
-    Nothing -> (countedPulse, [])
+processPulse modules moduleToWatch state (pulseType, sender, curr) =
+  case Map.lookup curr modules of
+    Nothing -> (countedPulse, []) -- The case for "rx" or "output". No further pulses generated.
     Just (Other dests) -> (countedPulse, [(pulseType, curr, dest) | dest <- dests])
     Just (FlipFlop dests) -> handleFF pulseType dests
     Just (Conjunction srcs dests) -> handleConj srcs dests
   where
     countedPulse =
       if pulseType == High
-        then st {highCount = st.highCount + 1}
-        else st {lowCount = st.lowCount + 1}
+        then state {highCount = state.highCount + 1}
+        else state {lowCount = state.lowCount + 1}
 
     handleFF :: PulseType -> Destinations -> (State, [Pulse])
     handleFF High _ = (countedPulse, [])
     handleFF Low dests = (newState, [(outputPulse, curr, dest) | dest <- dests])
       where
-        isOn = Set.member curr st.ffstate
-        newFFState = toggle st.ffstate curr
+        isOn = Set.member curr state.ffstate
+        newFFState = toggle state.ffstate curr
         newState = countedPulse {ffstate = newFFState}
         outputPulse = if isOn then Low else High
 
     handleConj :: Set.Set Label -> Destinations -> (State, [Pulse])
     handleConj srcs dests = (newState, [(outputPulse, curr, dest) | dest <- dests])
       where
-        memory = fromMaybe Set.empty $ Map.lookup curr st.cstate
+        memory = fromMaybe Set.empty $ Map.lookup curr state.cstate
         updatedMemory = updateMemory memory sender pulseType
-        newCState = Map.insert curr updatedMemory st.cstate
+        newCState = Map.insert curr updatedMemory state.cstate
 
         newState =
-          if isWatched
+          if watchTriggered
             then countedPulse {cstate = newCState, cycleCounter = cycleCounter'}
             else countedPulse {cstate = newCState}
 
         allHigh = Set.size updatedMemory == Set.size srcs
         outputPulse = if allHigh then Low else High
 
-        isWatched = curr == moduleToWatch && pulseType == High
-        cycleCounter' = Map.insert sender st.buttonCount st.cycleCounter
+        watchTriggered = curr == moduleToWatch && pulseType == High
+        cycleCounter' = Map.insert sender state.buttonCount state.cycleCounter
 
-processButton :: Modules -> Label -> State -> State
-processButton m moduleToWatch st = processQueue buttonCounted initPulseQueue
+pressButton :: Modules -> Label -> State -> State
+pressButton modules moduleToWatch state = processQueue state' initPulseQueue
   where
-    buttonCounted = st {buttonCount = st.buttonCount + 1}
+    state' = state {buttonCount = state.buttonCount + 1}
+
     initPulseQueue :: PulseQueue
     initPulseQueue = Q.fromList [(Low, "button", "broadcaster")]
 
     processQueue :: State -> PulseQueue -> State
-    processQueue st' queue = case Q.viewl queue of
-      Q.EmptyL -> st'
+    processQueue st queue = case Q.viewl queue of
+      Q.EmptyL -> st
       (pulse :< rest) -> processQueue newState updatedQueue
         where
-          (newState, newPulses) = processPulse m moduleToWatch st' pulse
+          (newState, newPulses) = processPulse modules moduleToWatch st pulse
           updatedQueue = foldl (Q.|>) rest newPulses
 
 initState :: State
 initState = State Set.empty Map.empty 0 0 0 Map.empty
 
 day20Part1 :: [String] -> Int
-day20Part1 input = finalState.lowCount * finalState.highCount
+day20Part1 input = stopState.lowCount * stopState.highCount
   where
     modules = parseModules input
-    processButton' = processButton modules ""
-    futures = iterate processButton' initState
-    finalState = futures !! 1000
+    pressButton' = pressButton modules ""
+    futures = iterate pressButton' initState
+    stopState = futures !! 1000
 
-type CycleCounter = Map.Map Label Int
 
 day20part2 :: [String] -> Int
 day20part2 input = foldl1 lcm $ Map.elems stopState.cycleCounter
@@ -159,13 +160,13 @@ day20part2 input = foldl1 lcm $ Map.elems stopState.cycleCounter
     (moduleToWatch, numbersOfPrePrecursor) = case precursorOfRx of
       [(label, Conjunction srcs _)] -> (label, length srcs)
       _ -> error "failed to find a single signal source for rx"
-    processButton' = processButton modules moduleToWatch
+    processButton' = pressButton modules moduleToWatch
     futures = iterate processButton' initState
 
-    gotEnoughInformation :: State -> Bool
-    gotEnoughInformation state = Map.size state.cycleCounter >= numbersOfPrePrecursor
+    enoughInformation :: State -> Bool
+    enoughInformation state = Map.size state.cycleCounter >= numbersOfPrePrecursor
 
-    stopState = head $ dropWhile (not . gotEnoughInformation) futures
+    stopState = head $ dropWhile (not . enoughInformation) futures
 
 main :: IO ()
 main = do
