@@ -35,13 +35,6 @@ type Workflow = [Rule]
 
 type Workflows = Map.Map Label Workflow
 
-parseBoth :: Parser (Workflows, Parts)
-parseBoth = do
-  workflows <- parseWorkflows
-  _ <- eol
-  parts <- parseParts
-  return (workflows, parts)
-
 parseRule :: Parser Rule
 parseRule = do
   category <-
@@ -96,26 +89,35 @@ parseParts = do
     parseSingleParts :: Parser [Int]
     parseSingleParts = do
       _ <- string "{x="
-      x <- read <$> some digitChar
+      x <- readNum
       _ <- string ",m="
-      m <- read <$> some digitChar
+      m <- readNum
       _ <- string ",a="
-      a <- read <$> some digitChar
+      a <- readNum
       _ <- string ",s="
-      s <- read <$> some digitChar
+      s <- readNum
       _ <- char '}'
       return [x, m, a, s]
+      where 
+        readNum = read <$> some digitChar
+
+parseBoth :: Parser (Workflows, Parts)
+parseBoth = do
+  workflows <- parseWorkflows
+  _ <- eol
+  parts <- parseParts
+  return (workflows, parts)
 
 -------------------
 -- Part 1
 -------------------
 
-pickAccepted :: Workflows -> Parts -> [Int]
+pickAccepted :: Workflows -> Parts -> [PartNum]
 pickAccepted ws parts = filter (judgeByWorkflow "in") [1 .. totalPartsNum]
   where
     totalPartsNum = fst . snd $ IA.bounds parts
 
-    judgeByWorkflow :: Label -> Int -> Bool
+    judgeByWorkflow :: Label -> PartNum -> Bool
     judgeByWorkflow label partNum =
       let workflow = fromJust $ Map.lookup label ws
        in case performRule workflow partNum of
@@ -123,23 +125,23 @@ pickAccepted ws parts = filter (judgeByWorkflow "in") [1 .. totalPartsNum]
             Reject -> False
             Goto label' -> judgeByWorkflow label' partNum
 
-    performRule :: [Rule] -> Int -> Result
+    performRule :: [Rule] -> PartNum -> Result
     performRule [] _ = error "something went wrong"
-    performRule ((cond, res) : xs) partsNum =
+    performRule ((cond, res) : xs) partNum =
       case cond of
         Else -> res
         GreaterThan cat v -> if partsValue cat > v then res else next
         LesserThan cat v -> if partsValue cat < v then res else next
       where
-        partsValue cat = parts IA.! (partsNum, fromEnum cat + 1)
-        next = performRule xs partsNum
+        partsValue cat = parts IA.! (partNum, fromEnum cat + 1)
+        next = performRule xs partNum
 
 day19part1 :: (Workflows, Parts) -> Int
 day19part1 (workflows, parts) = sumPartsRating $ pickAccepted workflows parts
   where
-    sumPartsRating :: [Int] -> Int
+    sumPartsRating :: [PartNum] -> Int
     sumPartsRating accepted =
-      sum $ [parts IA.! (partNum, cat) | partNum <- accepted, cat <- [1 .. 4]]
+      sum $ [parts IA.! (partNum, category) | partNum <- accepted, category <- [1 .. 4]]
 
 -------------------
 -- Part 2
