@@ -1,12 +1,10 @@
 {-# LANGUAGE TupleSections #-}
 
-import Control.Monad (liftM2)
 import qualified Data.Array.IArray as IA
 import qualified Data.Ix as Ix
 import Data.List (elemIndex, partition, transpose)
-import qualified Data.Map as Map
 import qualified Data.Set as Set
-import Utils (runSolution, testWithExample)
+import Utils (runSolution)
 
 type Coord = (Int, Int)
 
@@ -47,29 +45,35 @@ step m (x, y) =
     inRange = Ix.inRange (IA.bounds m)
     walkable coord = m IA.! coord /= Rock
 
-possibilities :: Grid -> Coord -> [Set.Set Coord]
-possibilities m startPos = iterate nextTurn (Set.singleton startPos)
-  where
-    step' :: Set.Set Coord -> Coord -> Set.Set Coord
-    step' s coord = Set.union s $ step m coord
+getStartPosition :: Grid -> Coord
+getStartPosition grid = head $ [coord | (coord, tile) <- IA.assocs grid, tile == Start]
 
-    nextTurn :: Set.Set Coord -> Set.Set Coord
-    nextTurn = Set.foldl step' Set.empty
-
-possibilities' :: Grid -> [Set.Set Coord]
-possibilities' m = possibilities m startPos
+distanceToEveryTile :: Grid -> [(Coord, Int)]
+distanceToEveryTile grid = concat [map (,steps) (Set.toList coords) | (steps, coords) <- zip [0 ..] stepsUntilEnd]
   where
-    startPos = head $ [coord | (coord, tile) <- IA.assocs m, tile == Start]
+    startPos = getStartPosition grid
+    stepsUntilEnd = takeWhile (not . Set.null) iterateSteps
 
-day21part1 :: Int -> [String] -> Int
-day21part1 steps input = Set.size $ possibilities' grid !! steps
+    iterateSteps :: [Set.Set Coord]
+    iterateSteps = map fst $ iterate next (Set.singleton startPos, Set.empty)
+      where
+        next :: (Set.Set Coord, Set.Set Coord) -> (Set.Set Coord, Set.Set Coord)
+        next (curr, seen) = (newlyReached, seen')
+          where
+            step' s coord = Set.union s $ step grid coord
+            reachable = Set.foldl step' Set.empty curr
+            newlyReached = Set.difference reachable seen
+            seen' = Set.union seen curr
+
+day21part1 :: [String] -> Int
+day21part1 input = length [steps | (_, steps) <- distanceToEveryTile grid, sameParity steps, steps <= stepsTaken]
   where
+    stepsTaken = 64
     grid = parseInput input
+    sameParity = if odd stepsTaken then odd else even
 
-data Direction = N | E | S | W deriving (Eq, Ord, Show, Enum)
-
-step'' :: Grid -> Coord -> Set.Set Coord
-step'' grid (x, y) =
+stepBoundless :: Grid -> Coord -> Set.Set Coord
+stepBoundless grid (x, y) =
   Set.fromList
     [ (x1, y1)
       | (dx, dy) <- directions,
@@ -81,121 +85,48 @@ step'' grid (x, y) =
     walkable coord = grid IA.! translate coord /= Rock
     mapSize = (+ 1) . snd . snd $ IA.bounds grid
 
-stepsForInfGrid :: Grid -> [Set.Set Coord]
-stepsForInfGrid m = iterate nextTurn (Set.singleton startPos)
+iterateInfSteps :: Grid -> [Set.Set Coord]
+iterateInfSteps grid = iterate nextTurn (Set.singleton startPos)
   where
-    startPos = head $ [coord | (coord, tile) <- IA.assocs m, tile == Start]
+    startPos = head $ [coord | (coord, tile) <- IA.assocs grid, tile == Start]
 
     step' :: Set.Set Coord -> Coord -> Set.Set Coord
-    step' s coord = Set.union s $ step'' m coord
+    step' s coord = Set.union s $ stepBoundless grid coord
 
     nextTurn :: Set.Set Coord -> Set.Set Coord
     nextTurn = Set.foldl step' Set.empty
 
 day21part2Example :: [String] -> Int
-day21part2Example input = Set.size $ stepsForInfGrid grid !! 100
+day21part2Example input = Set.size $ iterateInfSteps grid !! 100
   where
     grid = parseInput input
 
 day21part2 :: [String] -> Int
-day21part2 input = calcTotalArea 26501365
+day21part2 input = totalArea stepsTaken
   where
+    stepsTaken = 26501365
+
     grid = parseInput input
-    initStartPos = head $ [coord | (coord, tile) <- IA.assocs grid, tile == Start]
+    startPos = getStartPosition grid
     (_, (xBound, yBound)) = IA.bounds grid
-    distToBoundary = fst initStartPos
+    distanceToBoundary = fst startPos
     mapSize = xBound + 1
 
     both :: (a -> b) -> (a, a) -> (b, b)
     both f (a, b) = (f a, f b)
 
-    (oddTiles, evenTiles) = partition (odd . snd) distanceToEveryTile
-    (oddCount, evenCount) = both length (oddTiles, evenTiles)
-
-    (oddMiddleCount, oddCornerCount) = both length $ partition ((<= distToBoundary) . snd) oddTiles
-    (evenMiddleCount, evenCornerCount) = both length $ partition ((<= distToBoundary) . snd) evenTiles
-
-    calcTotalArea :: Int -> Int
-    calcTotalArea totalSteps = totalArea
+    totalArea :: Int -> Int
+    totalArea stepsTaken' = (n * n) * (oddCount + evenCount) + n * (evenCornerCount + 2 * oddMiddleCount + oddCornerCount) + oddMiddleCount
       where
-        n = (totalSteps - distToBoundary) `div` mapSize :: Int
-        totalArea = (n * n) * (oddCount + evenCount) + n * (evenCornerCount + 2 * oddMiddleCount + oddCornerCount) + oddMiddleCount
+        n = (stepsTaken' - distanceToBoundary) `div` mapSize :: Int
 
-    stepsUntilEnd = takeWhile (not . Set.null) $ iterateStepsFrom initStartPos
+        (oddTiles, evenTiles) = partition (odd . snd) $ distanceToEveryTile grid
+        (oddCount, evenCount) = both length (oddTiles, evenTiles)
 
-    distanceToEveryTile :: [(Coord, Int)]
-    distanceToEveryTile = concat [map (,steps) (Set.toList coords) | (steps, coords) <- zip [0 ..] stepsUntilEnd]
-    -- length $ [steps | ((x, y), steps) <- stepsToReachEveryTile, even steps]
-
-    -- entryPoints :: [(Direction, Coord)]
-    -- entryPoints = map (uncurry mapEntryPoint) exitPoints
-    --   where
-    --     mapEntryPoint N (x, _y) = (S, (x, yBound))
-    --     mapEntryPoint S (x, _y) = (N, (x, 0))
-    --     mapEntryPoint E (_x, y) = (W, (0, y))
-    --     mapEntryPoint W (_x, y) = (E, (xBound, y))
-
-    -- exitPoints = [(dir, coord) | (dir, (_step, coord)) <- Map.toList exitPointsWithSteps]
-
-    -- reachBoundary :: Direction -> Coord -> Bool
-    -- reachBoundary N = (== 0) . snd
-    -- reachBoundary E = (== xBound) . fst
-    -- reachBoundary S = (== yBound) . snd
-    -- reachBoundary W = (== 0) . fst
-
-    -- exitPointsWithSteps :: Map.Map Direction (Int, Coord)
-    -- exitPointsWithSteps = Map.fromList [(dir, bfs initStartPos f) | dir <- enumFrom N, let f = reachBoundary dir]
-
-    -- distance :: Coord -> Coord -> Int
-    -- distance startPos goalpos = stepsToReach startPos (== goalpos)
-
-    -- stepsToReach :: Coord -> (Coord -> Bool) -> Int
-    -- stepsToReach = (fst .) . bfs
-
-    -- bfs :: Coord -> (Coord -> Bool) -> (Int, Coord)
-    -- bfs startPos endCondition = (steps, goal)
-    --   where
-    --     goal = case filter endCondition (Set.toList reached) of
-    --       [x] -> x
-    --       _ -> error "more than one coord meet the given condition at the same time"
-    --     (steps, reached) = head iter
-    --     iter = dropWhile (not . endCondition') $ zip [0 ..] (iterateStepsFrom startPos)
-    --     endCondition' (_step, coords) = any endCondition $ Set.toList coords
-
-    iterateStepsFrom :: Coord -> [Set.Set Coord]
-    iterateStepsFrom startPos = map fst $ iterate nextSteps (Set.singleton startPos, Set.empty)
-      where
-        nextSteps :: (Set.Set Coord, Set.Set Coord) -> (Set.Set Coord, Set.Set Coord)
-        nextSteps (curr, seen) = (newlyReached, seen')
-          where
-            step' s coord = Set.union s $ step grid coord
-            reachable = Set.foldl step' Set.empty curr
-            newlyReached = Set.difference reachable seen
-            seen' = Set.union seen curr
-
--- takeUntilRepeat :: (Eq a) => [a] -> [a]
--- takeUntilRepeat xs = map fst taken
---   where
---     pairs = zip xs (drop 2 xs)
---     taken = takeWhile (not . pairMatch) pairs
---     pairMatch (a, b) = a == b
-
--- trial2 input = zip [0 ..] $ map length $ takeUntilRepeat iter
---   where
---     grid = parseInput input
---     iter = possibilities' grid
-
--- trial3 input = zip [0 ..] (map Set.size iter) !! 50 :: (Int, Int)
---   where
---     grid = parseInput input
---     iter = possibilities' grid
-
--- trial4 input = take 199 (zip [0 ..] $ map Set.size $ stepsForInfGrid grid)
---   where
---     grid = parseInput input
+        (oddMiddleCount, oddCornerCount) = both length $ partition ((<= distanceToBoundary) . snd) oddTiles
+        (evenMiddleCount, evenCornerCount) = both length $ partition ((<= distanceToBoundary) . snd) evenTiles
 
 main :: IO ()
 main = do
-  -- testWithExample "21" day21part2
-  -- testWithExample "21" day21part2Example
+  runSolution 21 day21part1
   runSolution 21 day21part2
