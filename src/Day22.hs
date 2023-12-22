@@ -6,10 +6,10 @@ import qualified Data.Ix as Ix
 import Data.List (sortOn)
 import Data.List.Split (splitWhen)
 import qualified Data.Map as Map
-import Data.Maybe (fromJust, fromMaybe)
+import Data.Maybe (fromJust)
 import qualified Data.Ord
 import qualified Data.Set as Set
-import Utils (runSolution, testWithExample)
+import Utils (runSolution)
 
 type Coord = (Int, Int, Int)
 
