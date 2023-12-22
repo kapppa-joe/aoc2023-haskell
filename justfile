@@ -11,3 +11,6 @@ compile day:
 
 clean_dir:
   rm src/*.o src/*.hi
+
+ghci:
+  cabal exec ghci
