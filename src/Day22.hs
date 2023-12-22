@@ -11,6 +11,10 @@ import qualified Data.Ord
 import qualified Data.Set as Set
 import Utils (runSolution)
 
+-------------------
+-- Defs and parsers
+-------------------
+
 type Coord = (Int, Int, Int)
 
 data Brick = Brick {from :: Coord, to :: Coord} deriving (Eq, Ord, Show)
@@ -57,6 +61,10 @@ parseBricks input = sortOn lowestZ $ map parseBrick input
           [x, y, z] -> (x, y, z) : toTriples (drop 3 xs)
           _ -> error "failed to parse coord"
 
+-------------------
+-- part 1
+-------------------
+
 overlap :: Brick -> Brick -> Bool
 overlap a b = any overlapWithA pointsInB
   where
@@ -87,10 +95,9 @@ handleFreeFall bricks = toArray $ handleFreeFall' bricks []
         brick' = dropToZLevel brick $ highestZ supporter
 
     dropToZLevel :: Brick -> Int -> Brick
-    dropToZLevel brick z = Brick (x0, y0, z0 - dz) (x1, y1, z1 - dz)
+    dropToZLevel brick z = fallBy dz brick
       where
         dz = lowestZ brick - z
-        ((x0, y0, z0), (x1, y1, z1)) = (brick.from, brick.to)
 
     toArray :: [Brick] -> SettledBricks
     toArray settled = IA.listArray (1, length settled) [(brick, highestZ brick, lowestZ brick) | brick <- settled]
@@ -152,9 +159,14 @@ day22part1 input = length $ filter canDestroy $ IA.indices settledBricks
   where
     settledBricks = handleFreeFall $ parseBricks input
     dependencies = buildDependencies settledBricks
+    isSoleSupporter' = isSoleSupporter dependencies
 
     canDestroy :: BrickIndex -> Bool
-    canDestroy x = not $ isSoleSupporter dependencies x
+    canDestroy = not . isSoleSupporter'
+
+-------------------
+-- part 2
+-------------------
 
 day22part2 :: [String] -> Int
 day22part2 input = sum $ map countChainReaction candidates

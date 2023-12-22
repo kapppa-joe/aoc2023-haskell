@@ -6,6 +6,10 @@ import Data.List (elemIndex, partition, transpose)
 import qualified Data.Set as Set
 import Utils (runSolution)
 
+-------------------
+-- Defs and parsers
+-------------------
+
 type Coord = (Int, Int)
 
 data Tile = Plot | Rock | Start deriving (Eq, Ord, Enum)
@@ -31,6 +35,10 @@ parseInput s = IA.listArray ((0, 0), (xBound, yBound)) $ map readTile $ concat $
   where
     xBound = length (head s) - 1
     yBound = length s - 1
+
+-------------------
+-- part 1
+-------------------
 
 step :: Grid -> Coord -> Set.Set Coord
 step m (x, y) =
@@ -72,6 +80,10 @@ day21part1 input = length [steps | (_, steps) <- distanceToEveryTile grid, sameP
     grid = parseInput input
     sameParity = if odd stepsTaken then odd else even
 
+------------------------------------------
+-- something to work with part 2 example
+------------------------------------------
+
 stepBoundless :: Grid -> Coord -> Set.Set Coord
 stepBoundless grid (x, y) =
   Set.fromList
@@ -100,6 +112,12 @@ day21part2Example :: [String] -> Int
 day21part2Example input = Set.size $ iterateInfSteps grid !! 100
   where
     grid = parseInput input
+
+-------------------
+-- part 2. 
+-- This solution depends on several special properties of puzzle input.
+-- Would not work for any arbitary map.
+-------------------
 
 day21part2 :: [String] -> Int
 day21part2 input = totalArea stepsTaken

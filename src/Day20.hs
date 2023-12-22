@@ -8,6 +8,10 @@ import qualified Data.Sequence.FastQueue as Q
 import qualified Data.Set as Set
 import Utils (runSolution)
 
+-------------------
+-- Defs and parsers
+-------------------
+
 data PulseType = High | Low deriving (Eq, Enum, Show)
 
 type Label = String
@@ -67,6 +71,10 @@ parseModules input = storeSenderForConjunctions $ Map.fromList $ map parseModule
           where
             senders = fromJust $ Map.lookup label reverseMap
         updateConjunction _ module_ = module_
+
+-------------------
+-- part 1
+-------------------
 
 getDestinations :: Module -> Destinations
 getDestinations (FlipFlop dests) = dests
@@ -151,6 +159,9 @@ day20Part1 input = stopState.lowCount * stopState.highCount
     futures = iterate pressButton' initState
     stopState = futures !! 1000
 
+-------------------
+-- part 2
+-------------------
 
 day20part2 :: [String] -> Int
 day20part2 input = foldl1 lcm $ Map.elems stopState.cycleCounter
