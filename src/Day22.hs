@@ -6,19 +6,23 @@ import qualified Data.Ix as Ix
 import Data.List (sortOn)
 import Data.List.Split (splitWhen)
 import qualified Data.Map as Map
+import Data.Maybe (fromJust, fromMaybe)
 import qualified Data.Ord
+import qualified Data.Set as Set
 import Utils (runSolution, testWithExample)
 
 type Coord = (Int, Int, Int)
 
 data Brick = Brick {from :: Coord, to :: Coord} deriving (Eq, Ord, Show)
 
-type SettledBricks = IA.Array Int (Brick, Int, Int)
+type BrickIndex = Int
 
--- store array idx
-data Dependency = D {topper :: Int, supporter :: Int} deriving (Eq, Ord, Show)
+type SettledBricks = IA.Array BrickIndex (Brick, Int, Int)
 
-type DependenciesGraph = Map.Map Int [Int] -- (key: supporter, vals: bricks on top)
+-- store array idx of each brick
+data Dependency = Depend {supporting :: [BrickIndex], supportedBy :: [BrickIndex]} deriving (Eq, Ord, Show)
+
+type DependenciesGraph = Map.Map BrickIndex Dependency
 
 fst' :: (a, b, c) -> a
 fst' (x, _, _) = x
@@ -92,8 +96,11 @@ handleFreeFall bricks = toArray $ handleFreeFall' bricks []
     toArray :: [Brick] -> SettledBricks
     toArray settled = IA.listArray (1, length settled) [(brick, highestZ brick, lowestZ brick) | brick <- settled]
 
-buildDependencies :: SettledBricks -> [Dependency]
-buildDependencies arr = buildDependencies' [1 .. len] []
+emptyDependency :: Dependency
+emptyDependency = Depend [] []
+
+buildDependencies :: SettledBricks -> DependenciesGraph
+buildDependencies arr = foldl addDependency Map.empty $ buildDependencies' [1 .. len] []
   where
     (_, len) = IA.bounds arr
 
@@ -106,7 +113,12 @@ buildDependencies arr = buildDependencies' [1 .. len] []
     getHighZ :: Int -> Int
     getHighZ = snd' . getInfo
 
-    buildDependencies' :: [Int] -> [Dependency] -> [Dependency]
+    isSupporting :: Brick -> Brick -> Bool
+    isSupporting curr = overlap ifFallBy1
+      where
+        ifFallBy1 = fallBy 1 curr
+
+    buildDependencies' :: [Int] -> [(Int, Int)] -> [(Int, Int)] -- (on top, supporting)
     buildDependencies' [] done = done
     buildDependencies' (currIndex : rest) done = buildDependencies' rest (newlyAdded ++ done)
       where
@@ -114,21 +126,63 @@ buildDependencies arr = buildDependencies' [1 .. len] []
         (_, lowerBricks) = span ((>= lowZ) . getHighZ) rest
         (candidates, _) = span ((== lowZ - 1) . getHighZ) lowerBricks
         supporters = [s | s <- candidates, isSupporting curr $ getBrick s]
-        newlyAdded = [D {topper = currIndex, supporter = s} | s <- supporters]
+        newlyAdded = [(currIndex, supporter) | supporter <- supporters]
 
-    isSupporting :: Brick -> Brick -> Bool
-    isSupporting curr = overlap ifFallBy1
+    addDependency :: DependenciesGraph -> (Int, Int) -> DependenciesGraph
+    addDependency m (onTop, supporter) = update m
       where
-        ifFallBy1 = fallBy 1 curr
+        left = Map.findWithDefault emptyDependency onTop m
+        right = Map.findWithDefault emptyDependency supporter m
+        left' = left {supportedBy = supporter : left.supportedBy}
+        right' = right {supporting = onTop : right.supporting}
+        update = Map.insert onTop left' . Map.insert supporter right'
 
--- verify :: [Brick] -> Bool
--- verify xs = not $ any (uncurry overlap) [(a, b) | a <- xs, b <- xs, a /= b]
-
-trial input = buildDependencies $ handleFreeFall bricks
+isSoleSupporter :: DependenciesGraph -> Int -> Bool
+isSoleSupporter dependencies x = case supportedBricks of
+  [] -> False
+  xs -> any ((== 1) . countSupporters) xs
   where
-    bricks = parseBricks input
+    dependency = Map.findWithDefault emptyDependency x dependencies
+    supportedBricks = dependency.supporting
 
+    countSupporters :: Int -> Int
+    countSupporters n = length (fromJust $ Map.lookup n dependencies).supportedBy
+
+day22part1 :: [String] -> Int
+day22part1 input = length $ filter canDestroy $ IA.indices settledBricks
+  where
+    settledBricks = handleFreeFall $ parseBricks input
+    dependencies = buildDependencies settledBricks
+
+    canDestroy :: Int -> Bool
+    canDestroy x = not $ isSoleSupporter dependencies x
+
+day22part2 :: [String] -> Int
+day22part2 input = sum $ map checkChainReaction candidates
+  where
+    settledBricks = handleFreeFall $ parseBricks input
+    dependencies = buildDependencies settledBricks
+    isSoleSupporter' = isSoleSupporter dependencies
+    candidates = filter isSoleSupporter' $ IA.indices settledBricks
+
+    findSupporters :: Int -> [Int]
+    findSupporters x = (Map.findWithDefault emptyDependency x dependencies).supportedBy
+
+    findSupported :: Int -> [Int]
+    findSupported x = (Map.findWithDefault emptyDependency x dependencies).supporting
+
+    checkChainReaction :: Int -> Int
+    checkChainReaction x = Set.size (checkChainReaction' (findSupported x) $ Set.singleton x) - 1
+
+    checkChainReaction' :: [Int] -> Set.Set Int -> Set.Set Int
+    checkChainReaction' [] fallen = fallen
+    checkChainReaction' mayFall fallen = checkChainReaction' nextCandidates fallen'
+      where
+        lostAllSupporter = all (`Set.member` fallen) . findSupporters
+        confirmedFall = filter lostAllSupporter mayFall
+        nextCandidates = concatMap findSupported confirmedFall
+        fallen' = Set.union fallen (Set.fromList confirmedFall)
+
+main :: IO ()
 main = do
-  testWithExample "22" trial
-
--- runSolution 22 trial
+  runSolution 22 day22part2
