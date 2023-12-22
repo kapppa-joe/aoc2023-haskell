@@ -19,7 +19,6 @@ type BrickIndex = Int
 
 type SettledBricks = IA.Array BrickIndex (Brick, Int, Int)
 
--- store array idx of each brick
 data Dependency = Depend {supporting :: [BrickIndex], supportedBy :: [BrickIndex]} deriving (Eq, Ord, Show)
 
 type DependenciesGraph = Map.Map BrickIndex Dependency
@@ -104,13 +103,13 @@ buildDependencies arr = foldl addDependency Map.empty $ buildDependencies' [1 ..
   where
     (_, len) = IA.bounds arr
 
-    getInfo :: Int -> (Brick, Int, Int)
+    getInfo :: BrickIndex -> (Brick, Int, Int)
     getInfo x = arr IA.! x
 
-    getBrick :: Int -> Brick
+    getBrick :: BrickIndex -> Brick
     getBrick = fst' . getInfo
 
-    getHighZ :: Int -> Int
+    getHighZ :: BrickIndex -> Int
     getHighZ = snd' . getInfo
 
     isSupporting :: Brick -> Brick -> Bool
@@ -118,7 +117,7 @@ buildDependencies arr = foldl addDependency Map.empty $ buildDependencies' [1 ..
       where
         ifFallBy1 = fallBy 1 curr
 
-    buildDependencies' :: [Int] -> [(Int, Int)] -> [(Int, Int)] -- (on top, supporting)
+    buildDependencies' :: [BrickIndex] -> [(BrickIndex, BrickIndex)] -> [(BrickIndex, BrickIndex)] -- (on top, supporting)
     buildDependencies' [] done = done
     buildDependencies' (currIndex : rest) done = buildDependencies' rest (newlyAdded ++ done)
       where
@@ -128,7 +127,7 @@ buildDependencies arr = foldl addDependency Map.empty $ buildDependencies' [1 ..
         supporters = [s | s <- candidates, isSupporting curr $ getBrick s]
         newlyAdded = [(currIndex, supporter) | supporter <- supporters]
 
-    addDependency :: DependenciesGraph -> (Int, Int) -> DependenciesGraph
+    addDependency :: DependenciesGraph -> (BrickIndex, BrickIndex) -> DependenciesGraph
     addDependency m (onTop, supporter) = update m
       where
         left = Map.findWithDefault emptyDependency onTop m
@@ -137,7 +136,7 @@ buildDependencies arr = foldl addDependency Map.empty $ buildDependencies' [1 ..
         right' = right {supporting = onTop : right.supporting}
         update = Map.insert onTop left' . Map.insert supporter right'
 
-isSoleSupporter :: DependenciesGraph -> Int -> Bool
+isSoleSupporter :: DependenciesGraph -> BrickIndex -> Bool
 isSoleSupporter dependencies x = case supportedBricks of
   [] -> False
   xs -> any ((== 1) . countSupporters) xs
@@ -145,7 +144,7 @@ isSoleSupporter dependencies x = case supportedBricks of
     dependency = Map.findWithDefault emptyDependency x dependencies
     supportedBricks = dependency.supporting
 
-    countSupporters :: Int -> Int
+    countSupporters :: BrickIndex -> Int
     countSupporters n = length (fromJust $ Map.lookup n dependencies).supportedBy
 
 day22part1 :: [String] -> Int
@@ -154,29 +153,32 @@ day22part1 input = length $ filter canDestroy $ IA.indices settledBricks
     settledBricks = handleFreeFall $ parseBricks input
     dependencies = buildDependencies settledBricks
 
-    canDestroy :: Int -> Bool
+    canDestroy :: BrickIndex -> Bool
     canDestroy x = not $ isSoleSupporter dependencies x
 
 day22part2 :: [String] -> Int
-day22part2 input = sum $ map checkChainReaction candidates
+day22part2 input = sum $ map countChainReaction candidates
   where
     settledBricks = handleFreeFall $ parseBricks input
     dependencies = buildDependencies settledBricks
     isSoleSupporter' = isSoleSupporter dependencies
     candidates = filter isSoleSupporter' $ IA.indices settledBricks
 
-    findSupporters :: Int -> [Int]
+    findSupporters :: BrickIndex -> [BrickIndex]
     findSupporters x = (Map.findWithDefault emptyDependency x dependencies).supportedBy
 
-    findSupported :: Int -> [Int]
+    findSupported :: BrickIndex -> [BrickIndex]
     findSupported x = (Map.findWithDefault emptyDependency x dependencies).supporting
 
-    checkChainReaction :: Int -> Int
-    checkChainReaction x = Set.size (checkChainReaction' (findSupported x) $ Set.singleton x) - 1
+    countChainReaction :: BrickIndex -> Int
+    countChainReaction x = Set.size (chainReaction mayFall fallen) - 1
+      where
+        mayFall = findSupported x
+        fallen = Set.singleton x
 
-    checkChainReaction' :: [Int] -> Set.Set Int -> Set.Set Int
-    checkChainReaction' [] fallen = fallen
-    checkChainReaction' mayFall fallen = checkChainReaction' nextCandidates fallen'
+    chainReaction :: [BrickIndex] -> Set.Set BrickIndex -> Set.Set BrickIndex
+    chainReaction [] fallen = fallen
+    chainReaction mayFall fallen = chainReaction nextCandidates fallen'
       where
         lostAllSupporter = all (`Set.member` fallen) . findSupporters
         confirmedFall = filter lostAllSupporter mayFall
