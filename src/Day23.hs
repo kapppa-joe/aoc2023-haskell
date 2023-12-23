@@ -62,16 +62,14 @@ buildGraph grid isSlippery = Map.fromList $ buildGraph' [start] Set.empty []
     buildGraph' [] _ done = done
     buildGraph' nexts seen done = buildGraph' nexts' seen' $ newlyAdded ++ done
       where
-        newlyAdded = [(coord, findNextNodes coord) | coord <- nexts]
+        newlyAdded = [(coord, findConnectedNodes coord) | coord <- nexts]
         seen' = Set.union seen (Set.fromList nexts)
         candidates = [connectedNodes | (_, results) <- newlyAdded, (connectedNodes, _) <- results]
         nexts' = Set.toList $ Set.fromList candidates `Set.difference` seen'
 
-    findNextNodes :: Coord -> [(Coord, Int)]
-    findNextNodes currNode = catMaybes connectedNodes
+    findConnectedNodes :: Coord -> [(Coord, Int)]
+    findConnectedNodes currNode = catMaybes connectedNodes
       where
-        startTile = grid IA.! currNode
-
         connectedNodes = [walkUntilBranch neighbour currNode 0 | neighbour <- neighbours currNode]
 
         inBound :: Coord -> Bool
@@ -104,13 +102,14 @@ longestDistance graph start goal = dfs start Set.empty 0
     dfs curr visited walked
       | curr == goal = walked
       | null nexts = 0
-      | goal `elem` map fst nexts = justFinishItAlready -- prune useless branches that visited goal-1 but went elsewhere
+      | canSeeTheGoal = justFinishItAlready -- prune useless branches that visited goal-1 but went elsewhere
       | otherwise = maximum possibilities
       where
         nexts = [(node, dist) | (node, dist) <- fromJust $ Map.lookup curr graph, Set.notMember node visited]
         visited' = Set.insert curr visited
         possibilities = [dfs node visited' (walked + dist) | (node, dist) <- nexts]
 
+        canSeeTheGoal = goal `elem` map fst nexts
         justFinishItAlready = dfs goal' visited' (walked + distToGoal)
           where
             (goal', distToGoal) = head $ filter ((== goal) . fst) nexts
@@ -130,6 +129,7 @@ day23part1 = day23 Slippery
 day23part2 :: [String] -> Int
 day23part2 = day23 NotSoSlippery
 
+main :: IO ()
 main = do
   runSolution 23 day23part1
   runSolution 23 day23part2
