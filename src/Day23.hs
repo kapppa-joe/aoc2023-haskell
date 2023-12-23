@@ -10,6 +10,8 @@ type Coord = (Int, Int)
 
 type Direction = (Int, Int)
 
+type Distance = Int
+
 data Tile = Path | Forest | SlopeN | SlopeE | SlopeS | SlopeW deriving (Eq, Ord, Enum)
 
 instance Show Tile where
@@ -17,7 +19,7 @@ instance Show Tile where
 
 type Grid = IA.Array Coord Tile
 
-type HikingGraph = Map.Map Coord [(Coord, Int)]
+type HikingGraph = Map.Map Coord [(Coord, Distance)]
 
 directions :: [(Int, Int)]
 directions = [(0, -1), (1, 0), (0, 1), (-1, 0)]
@@ -58,7 +60,7 @@ buildGraph grid isSlippery = Map.fromList $ buildGraph' [start] Set.empty []
   where
     (start, goal) = findStartAndGoal grid
 
-    buildGraph' :: [Coord] -> Set.Set Coord -> [(Coord, [(Coord, Int)])] -> [(Coord, [(Coord, Int)])]
+    buildGraph' :: [Coord] -> Set.Set Coord -> [(Coord, [(Coord, Distance)])] -> [(Coord, [(Coord, Distance)])]
     buildGraph' [] _ done = done
     buildGraph' nexts seen done = buildGraph' nexts' seen' $ newlyAdded ++ done
       where
@@ -67,7 +69,7 @@ buildGraph grid isSlippery = Map.fromList $ buildGraph' [start] Set.empty []
         candidates = [connectedNodes | (_, results) <- newlyAdded, (connectedNodes, _) <- results]
         nexts' = Set.toList $ Set.fromList candidates `Set.difference` seen'
 
-    findConnectedNodes :: Coord -> [(Coord, Int)]
+    findConnectedNodes :: Coord -> [(Coord, Distance)]
     findConnectedNodes currNode = catMaybes connectedNodes
       where
         connectedNodes = [walkUntilBranch neighbour currNode 0 | neighbour <- neighbours currNode]
@@ -86,7 +88,7 @@ buildGraph grid isSlippery = Map.fromList $ buildGraph' [start] Set.empty []
               walkable next
           ]
 
-        walkUntilBranch :: Coord -> Coord -> Int -> Maybe (Coord, Int)
+        walkUntilBranch :: Coord -> Coord -> Distance -> Maybe (Coord, Distance)
         walkUntilBranch curr prev' steps = case nexts of
           [next] -> walkUntilBranch next curr (steps + 1)
           [] -> if curr == goal then Just (curr, steps + 1) else Nothing
@@ -95,10 +97,10 @@ buildGraph grid isSlippery = Map.fromList $ buildGraph' [start] Set.empty []
             currTile = grid IA.! curr
             nexts = filter (/= prev') $ neighbours curr
 
-longestDistance :: HikingGraph -> Coord -> Coord -> Int
+longestDistance :: HikingGraph -> Coord -> Coord -> Distance
 longestDistance graph start goal = dfs start Set.empty 0
   where
-    dfs :: Coord -> Set.Set Coord -> Int -> Int
+    dfs :: Coord -> Set.Set Coord -> Distance -> Distance
     dfs curr visited walked
       | curr == goal = walked
       | null nexts = 0
@@ -114,7 +116,7 @@ longestDistance graph start goal = dfs start Set.empty 0
           where
             (goal', distToGoal) = head $ filter ((== goal) . fst) nexts
 
-day23 :: Slipperiness -> [String] -> Int
+day23 :: Slipperiness -> [String] -> Distance
 day23 condition input = longestDistance graph start goal
   where
     grid = parseInput input
@@ -123,10 +125,10 @@ day23 condition input = longestDistance graph start goal
 
 data Slipperiness = Slippery | NotSoSlippery deriving (Eq)
 
-day23part1 :: [String] -> Int
+day23part1 :: [String] -> Distance
 day23part1 = day23 Slippery
 
-day23part2 :: [String] -> Int
+day23part2 :: [String] -> Distance
 day23part2 = day23 NotSoSlippery
 
 main :: IO ()
