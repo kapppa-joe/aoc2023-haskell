@@ -9,7 +9,7 @@ import qualified Data.Map as Map
 import Data.Maybe (fromJust)
 import qualified Data.Ord
 import qualified Data.Set as Set
-import Utils (runSolution)
+import Utils (runSolution, trd, fst', snd')
 
 -------------------
 -- Defs and parsers
@@ -26,15 +26,6 @@ type SettledBricks = IA.Array BrickIndex (Brick, Int, Int)
 data Dependency = Depend {supporting :: [BrickIndex], supportedBy :: [BrickIndex]} deriving (Eq, Ord, Show)
 
 type DependenciesGraph = Map.Map BrickIndex Dependency
-
-fst' :: (a, b, c) -> a
-fst' (x, _, _) = x
-
-snd' :: (a, b, c) -> b
-snd' (_, y, _) = y
-
-trd :: (a, b, c) -> c
-trd (_, _, z) = z
 
 highestZ :: Brick -> Int
 highestZ b = max (trd b.from) (trd b.to)
