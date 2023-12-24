@@ -2,21 +2,19 @@ import Data.Char (isDigit)
 import Data.Maybe (catMaybes)
 import Utils (runSolution)
 
-data Number = Digit Int | Word Int deriving (Eq, Ord, Show)
-
 numberWordList :: [String]
 numberWordList = ["one", "two", "three", "four", "five", "six", "seven", "eight", "nine"]
 
-parseInput :: Bool -> [String] -> [[Number]]
+parseInput :: Bool -> [String] -> [[Int]]
 parseInput considerWord = map parseLine
   where
-    parseLine :: String -> [Number]
+    parseLine :: String -> [Int]
     parseLine [] = []
     parseLine str@(x : xs)
-      | isDigit x = Digit (read [x]) : parseRest
+      | isDigit x = read [x] : parseRest
       | not considerWord = parseRest
       | otherwise = case numberWordFound of
-          (n : _) -> Word n : parseRest
+          (n : _) -> n : parseRest
           _ -> parseRest
       where
         parseRest = parseLine xs
@@ -27,15 +25,11 @@ parseInput considerWord = map parseLine
       | take (length word) s == word = Just n
       | otherwise = Nothing
 
-value :: Number -> Int
-value (Digit x) = x
-value (Word x) = x
-
-calibrationValue :: [Number] -> Int
+calibrationValue :: [Int] -> Int
 calibrationValue [] = error "no digit found"
-calibrationValue v@(x : _) = value x * 10 + getLastDigit v
+calibrationValue v@(x : _) = x * 10 + getLastDigit v
   where
-    getLastDigit [y] = value y
+    getLastDigit [y] = y
     getLastDigit [] = error "second digit not found"
     getLastDigit (_ : ys) = getLastDigit ys
 
