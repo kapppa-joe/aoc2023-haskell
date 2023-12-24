@@ -67,19 +67,16 @@ makePairs :: [a] -> [(a, a)]
 makePairs [] = []
 makePairs (a : rest) = [(a, b) | b <- rest] ++ makePairs rest
 
-extractParams' :: Hailstone -> FourParams
-extractParams' stone = (fst' stone.initPos, snd' stone.initPos, fst' stone.velocity, snd' stone.velocity)
+extractParams :: Hailstone -> FourParams
+extractParams hail = (fst' hail.initPos, snd' hail.initPos, fst' hail.velocity, snd' hail.velocity)
 
 solveEq' :: (Hailstone, Hailstone) -> Maybe (Double, Double)
-solveEq' (stoneA, stoneB) = solveEq (extractParams' stoneA) (extractParams' stoneB)
+solveEq' (hailA, hailB) = solveEq (extractParams hailA) (extractParams hailB)
 
 checkIntersection :: (Integer, Integer) -> Hailstone -> Hailstone -> Case
-checkIntersection testRange stoneA stoneB = checkResult
+checkIntersection testRange hailA hailB = checkResult
   where
-    extractParams :: Hailstone -> FourParams
-    extractParams stone = (fst' stone.initPos, snd' stone.initPos, fst' stone.velocity, snd' stone.velocity)
-
-    intersection = solveEq (extractParams stoneA) (extractParams stoneB)
+    intersection = solveEq (extractParams hailA) (extractParams hailB)
 
     checkResult = case intersection of
       Nothing -> Parallel
@@ -89,10 +86,10 @@ checkIntersection testRange stoneA stoneB = checkResult
     sameSign a b = (< 0) a == (< 0) b
 
     inFuture :: Hailstone -> Double -> Bool
-    inFuture stone x = sameSign xDiff vx
+    inFuture hail x = sameSign xDiff vx
       where
-        xDiff = x - fromIntegral (fst' stone.initPos)
-        vx = fst' stone.velocity
+        xDiff = x - fromIntegral (fst' hail.initPos)
+        vx = fst' hail.velocity
 
     inBound :: Double -> Bool
     inBound = bothTrue (Ix.inRange testRange . floor) (Ix.inRange testRange . ceiling)
@@ -103,7 +100,7 @@ checkIntersection testRange stoneA stoneB = checkResult
       | not bothInBound = OutOfRange
       | otherwise = WillCross (x, y)
       where
-        bothInFuture = inFuture stoneA x && inFuture stoneB x
+        bothInFuture = inFuture hailA x && inFuture hailB x
         bothInBound = inBound x && inBound y
 
 
@@ -125,15 +122,31 @@ day24part1 input = countIntersections testRange hailstones
     testRange = (200000000000000, 400000000000000)
     -- testRange = (7, 27)
 
--- trial input = solveEq (a,b,c,d) (e,f,g,h)
+
+linesOverlap :: FourParams -> FourParams -> Bool
+linesOverlap (a,b,c,d) (e,f,g,h) = sameSlope && sameIntercept
+  where
+    sameSlope = c * h == d * g
+    sameIntercept = (b * c - a * d) * g   == (f * g -  e * h) * c
+
+
+shiftReferenceFrame :: (Int, Int) -> Hailstone -> FourParams
+shiftReferenceFrame (vx, vy) hail = (x0, y0, dx0 - fromIntegral vx, dy0 - fromIntegral vy)
+  where
+    (x0, y0, dx0, dy0) = extractParams hail
+
+
+-- trial :: [String] -> [Maybe (Double, Double)]
+-- trial input = map solveEq' allPairs
 --   where
 --     hailstones = parseHailstones input
---     testRange = (200000000000000, 400000000000000)
+-- --     testRange = (200000000000000, 400000000000000)
 --     allPairs = makePairs hailstones
---     check = uncurry $ checkIntersection testRange
---     (a, b, c, d) = (219051609191782, 68260434807407, 146, 364)
+-- --     check = uncurry $ checkIntersection testRange
+-- --     (a, b, c, d) = (219051609191782, 68260434807407, 146, 364)
 --     (e,f,g,h) = (455400538938496, 167482380286201, -109, 219)
 
 
 main = do
+  -- testWithExample "24b" trial
   runSolution 24 day24part1
