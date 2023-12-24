@@ -11,7 +11,7 @@ import Utils (runSolution)
 -- Defs and parsers
 -------------------
 
-type Velocity3D = (Integer, Integer, Integer)
+type Coord3D = (Integer, Integer, Integer)
 
 type Velocity3D = (Integer, Integer, Integer)
 
@@ -21,7 +21,7 @@ type Velocity2D = (Integer, Integer)
 
 data Axis = X | Y | Z deriving (Eq, Ord, Show, Enum)
 
-data Hailstone = Hail {initPos :: Velocity3D, velocity :: Velocity3D} deriving (Eq, Ord, Show)
+data Hailstone = Hail {initPos :: Coord3D, velocity :: Velocity3D} deriving (Eq, Ord, Show)
 
 type Line2D = (Integer, Integer, Integer, Integer)
 
@@ -34,7 +34,7 @@ snd' (_, y, _) = y
 trd :: (a, b, c) -> c
 trd (_, _, z) = z
 
-toTriples :: [Integer] -> [Velocity3D]
+toTriples :: [Integer] -> [Coord3D]
 toTriples xs = case take 3 xs of
   [] -> []
   [x, y, z] -> (x, y, z) : toTriples (drop 3 xs)
@@ -44,11 +44,11 @@ parseHailstones :: [String] -> [Hailstone]
 parseHailstones = map parseLine
   where
     parseLine :: String -> Hailstone
-    parseLine s = Hail coord v
+    parseLine s = Hail coord vel
       where
         extractedNumbers = map read $ filter (not . null) $ splitOneOf " @," s :: [Integer]
-        (coord, v) = case toTriples extractedNumbers of
-          [x, y] -> (x, y)
+        (coord, vel) = case toTriples extractedNumbers of
+          [a, b] -> (a, b)
           _ -> error "failed to parse input"
 
 -------------------
@@ -63,7 +63,6 @@ solveEq (a, b, c, d) (e, f, g, h) = trySolveEquation
     numeratorX = b * c * g - a * d * g + c * e * h - c * f * g
     numeratorY = a * d * h - b * c * h - d * e * h + d * f * g
     divider = c * h - d * g
-    printout = show numeratorX ++ ", " ++ show numeratorY ++ show divider
 
     x = fromIntegral numeratorX / fromIntegral divider :: Rational
     y = (-1) * fromIntegral numeratorY / fromIntegral divider :: Rational
