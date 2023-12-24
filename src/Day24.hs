@@ -7,6 +7,10 @@ import Data.List.Split (splitOneOf)
 import Data.Maybe (isJust, mapMaybe)
 import Utils (runSolution)
 
+-------------------
+-- Defs and parsers
+-------------------
+
 type Coord3D = (Integer, Integer, Integer)
 
 type Velocity3D = (Integer, Integer, Integer)
@@ -46,6 +50,11 @@ parseHailstones = map parseLine
         (coord, v) = case toTriples extractedNumbers of
           [x, y] -> (x, y)
           _ -> error "failed to parse input"
+
+-------------------
+-- Part 1. Just middle school algebra
+-- ...But took me > 1 hr to figure out a bug about Int overflow. :<  
+-------------------
 
 solveEq :: Line2D -> Line2D -> Maybe (Rational, Rational)
 solveEq (a, b, c, d) (e, f, g, h) = trySolveEquation
@@ -134,6 +143,15 @@ day24part1 input = countIntersections testRange hailstones
 
 -- testRange = (7, 27)
 
+-------------------
+-- Part 2
+-- Assume the thrown rock speed as vRock, 
+-- if we convert the whole system to the referece frame of the rock by vHail' = vHail - vRock
+-- then what observed by the rock would be like "me stand still but every hailstone just magically hit me"
+-- Base on this assumption, search for intersection point of every hails in the converted system, which will be then the start pos of rock.
+-- Set the search space as [-1000 - 1000] for each x y z. Turn out to be more than enough for the given input.
+-------------------
+
 linesOverlap :: Line2D -> Line2D -> Bool
 linesOverlap (a, b, c, d) (e, f, g, h) = sameSlope && sameIntercept
   where
@@ -156,16 +174,16 @@ detectIntersect shiftedHails = verifyIntersect' (tail shiftedHails) Nothing
     verifyIntersect' :: [Line2D] -> Maybe (Rational, Rational) -> Maybe Coord2D
     verifyIntersect' [] (Just (vx, vy)) = Just (floor vx, floor vy)
     verifyIntersect' [] Nothing = Nothing
-    verifyIntersect' (x : xs) intersection =
+    verifyIntersect' (line : rest) intersection =
       case (sameline, intersection) of
         (True, _) -> checkNext
         (False, Nothing) -> if isJust currIntersection then checkNext' else Nothing
         (False, Just _) -> if intersection == currIntersection then checkNext else Nothing
       where
-        sameline = linesOverlap firstHail x
-        checkNext = verifyIntersect' xs intersection
-        currIntersection = solveEq firstHail x
-        checkNext' = verifyIntersect' xs currIntersection
+        sameline = linesOverlap firstHail line
+        checkNext = verifyIntersect' rest intersection
+        currIntersection = solveEq firstHail line
+        checkNext' = verifyIntersect' rest currIntersection
 
 
 searchRockVelocity2D :: [Hailstone] -> (Axis, Axis) -> [Velocity2D] -> Maybe (Velocity2D, Coord2D)
@@ -187,9 +205,9 @@ day24part2 :: [String] -> (Coord3D, Integer)
 day24part2 input = searchResult 
     where
       hailstones = parseHailstones input
-      lst = [1 .. 1000]
+      searchRange = [1 .. 1000]
 
-      searchRangeXY = [(a * vx, b * vy) | vx <- lst, vy <- lst, a <- [1, -1], b <- [1, -1]]
+      searchRangeXY = [(a * vx, b * vy) | vx <- searchRange, vy <- searchRange, a <- [1, -1], b <- [1, -1]]
       xySearchResult = searchRockVelocity2D hailstones (X,Y) searchRangeXY
 
       searchResult :: (Coord3D, Integer)
@@ -198,7 +216,7 @@ day24part2 input = searchResult
         Just ((rockVelX, rockVelY), (x, y)) -> searchXZ
           where
 
-          searchRangeXZ = [(rockVelX, c * vz) | vz <- lst, c <- [1, -1]]
+          searchRangeXZ = [(rockVelX, c * vz) | vz <- searchRange, c <- [1, -1]]
           xzSearchResult = searchRockVelocity2D hailstones (X,Z) searchRangeXZ
 
           searchXZ = case xzSearchResult of

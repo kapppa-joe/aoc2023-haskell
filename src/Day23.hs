@@ -6,6 +6,10 @@ import Data.Maybe (catMaybes, fromJust)
 import qualified Data.Set as Set
 import Utils (runSolution)
 
+-------------------
+-- Defs and parsers
+-------------------
+
 type Coord = (Int, Int)
 
 type Direction = (Int, Int)
@@ -37,6 +41,10 @@ parseInput s = IA.listArray ((1, 1), (xBound, yBound)) $ map readTile $ concat $
 
 slopeTiles :: [Tile]
 slopeTiles = [SlopeN, SlopeE, SlopeS, SlopeW]
+
+-------------------
+-- Main. Part 1 and 2 mixed together 
+-------------------
 
 allowedDirections :: Bool -> Tile -> [Direction]
 allowedDirections isSlippery currTile
