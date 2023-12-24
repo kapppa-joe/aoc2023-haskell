@@ -1,82 +1,60 @@
-import Data.Char (digitToInt, isDigit)
-import Data.List (elemIndex, isPrefixOf, tails)
+import Data.Char (isDigit)
 import Data.Maybe (catMaybes)
-import Utils (Solution, runSolution)
+import Utils (runSolution)
 
---------------
--- PART ONE
---------------
+data Number = Digit Int | Word Int deriving (Eq, Ord, Show)
 
-type Row = String
+numberWordList :: [String]
+numberWordList = ["one", "two", "three", "four", "five", "six", "seven", "eight", "nine"]
 
-day01part1 :: Solution
-day01part1 rows = toInteger $ sum calibrationValues
+parseInput :: Bool -> [String] ->  [[Number]]
+parseInput considerWord = map parseLine
   where
-    calibrationValues = map getCalibrationValue rows
+    parseLine :: String -> [Number]
+    parseLine [] = []
+    parseLine str@(x : xs)
+      | isDigit x = Digit (read [x]) : parseRest
+      | not considerWord = parseRest
+      | otherwise = case numberWordFound of
+          (n : _) -> Word n : parseRest
+          _ -> parseRest
+      where
+        parseRest = parseLine xs
+        numberWordFound = catMaybes [detectNumberWord str ws | ws <- zip numberWordList [1..9]]
 
-getDigit :: Row -> Maybe Int
-getDigit [] = Nothing
-getDigit (x : _)
-  | isDigit x = Just $ digitToInt x
-  | otherwise = Nothing
+    detectNumberWord :: String -> (String, Int) -> Maybe Int
+    detectNumberWord s (word, n)
+      | take (length word) s == word = Just n
+      | otherwise = Nothing
 
-getFirstDigit :: Row -> Int
-getFirstDigit xs = head $ catMaybes maybeDigits
+
+value :: Number -> Int
+value (Digit x) = x
+value (Word x) = x
+
+calibrationValue :: [Number] -> Int
+calibrationValue [] = error "no digit found"
+calibrationValue v@(x:_) = value x * 10 + getLastDigit v
   where
-    maybeDigits = map getDigit $ tails xs
+    getLastDigit [y] = value y
+    getLastDigit [] = error "second digit not found"
+    getLastDigit (_:ys) = getLastDigit ys
 
-getCalibrationValue :: Row -> Int
-getCalibrationValue xs = headDigit * 10 + lastDigit
+
+day01part1 :: [String] -> Int
+day01part1 input = sum $ map calibrationValue numbers
   where
-    headDigit = getFirstDigit xs
-    lastDigit = getFirstDigit $ reverse xs
+    parseDigitsOnly = parseInput False
+    numbers =  parseDigitsOnly input
 
---------------
--- PART TWO
---------------
-
-digitsInWord :: [String]
-digitsInWord = ["one", "two", "three", "four", "five", "six", "seven", "eight", "nine"]
-
-day01part2 :: Solution
-day01part2 rows = toInteger $ sum calibrationValues
+day01part2 :: [String] -> Int
+day01part2 input = sum $ map calibrationValue numbers
   where
-    calibrationValues = map getCalibrationValue' rows
+    parseWordsAsWell = parseInput True
+    numbers = parseWordsAsWell input
 
-getDigit' :: Row -> Maybe Int
-getDigit' [] = Nothing
-getDigit' row@(x : _)
-  | isDigit x = Just $ digitToInt x
-  | otherwise = tryParseNumberWord row
-
-findNumberWord :: Row -> Maybe String
-findNumberWord row = safeHead $ filter isPrefixOf' digitsInWord
-  where
-    isPrefixOf' word = word `isPrefixOf` row
-    safeHead [] = Nothing
-    safeHead (x : _) = Just x
-
-tryParseNumberWord :: Row -> Maybe Int
-tryParseNumberWord row = findNumberWord row >>= wordToNumber
-  where
-    wordToNumber word = (+ 1) <$> elemIndex word digitsInWord
-
-getFirstDigit' :: Row -> Int
-getFirstDigit' row = head $ catMaybes maybeDigits
-  where
-    maybeDigits = map getDigit' $ tails row
-
-getLastDigit' :: Row -> Int
-getLastDigit' row = head $ catMaybes maybeDigits
-  where
-    maybeDigits = reverse $ map getDigit' $ tails row
-
-getCalibrationValue' :: Row -> Int
-getCalibrationValue' row = firstDigit * 10 + lastDigit
-  where
-    firstDigit = getFirstDigit' row
-    lastDigit = getLastDigit' row
 
 main :: IO ()
 main = do
+  runSolution 1 day01part1
   runSolution 1 day01part2
