@@ -11,7 +11,7 @@ import Utils (runSolution)
 -- Defs and parsers
 -------------------
 
-type Coord3D = (Integer, Integer, Integer)
+type Velocity3D = (Integer, Integer, Integer)
 
 type Velocity3D = (Integer, Integer, Integer)
 
@@ -21,7 +21,7 @@ type Velocity2D = (Integer, Integer)
 
 data Axis = X | Y | Z deriving (Eq, Ord, Show, Enum)
 
-data Hailstone = Hail {initPos :: Coord3D, velocity :: Velocity3D} deriving (Eq, Ord, Show)
+data Hailstone = Hail {initPos :: Velocity3D, velocity :: Velocity3D} deriving (Eq, Ord, Show)
 
 type Line2D = (Integer, Integer, Integer, Integer)
 
@@ -34,7 +34,7 @@ snd' (_, y, _) = y
 trd :: (a, b, c) -> c
 trd (_, _, z) = z
 
-toTriples :: [Integer] -> [Coord3D]
+toTriples :: [Integer] -> [Velocity3D]
 toTriples xs = case take 3 xs of
   [] -> []
   [x, y, z] -> (x, y, z) : toTriples (drop 3 xs)
@@ -201,7 +201,7 @@ searchRockVelocity2D hailstones (axisA, axisB) searchRange = case uncons search 
         shiftedHails = map (shiftReferenceFrame2D axisA axisB (vx, vy)) hailstones
         result = detectIntersect shiftedHails
 
-day24part2 :: [String] -> (Coord3D, Integer)
+day24part2 :: [String] -> (Velocity3D, Integer)
 day24part2 input = searchResult 
     where
       hailstones = parseHailstones input
@@ -210,7 +210,7 @@ day24part2 input = searchResult
       searchRangeXY = [(a * vx, b * vy) | vx <- searchRange, vy <- searchRange, a <- [1, -1], b <- [1, -1]]
       xySearchResult = searchRockVelocity2D hailstones (X,Y) searchRangeXY
 
-      searchResult :: (Coord3D, Integer)
+      searchResult :: (Velocity3D, Integer)
       searchResult = case xySearchResult of 
         Nothing -> error "no result found in given search space"
         Just ((rockVelX, rockVelY), (x, y)) -> searchXZ
