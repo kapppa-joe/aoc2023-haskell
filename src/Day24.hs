@@ -1,24 +1,25 @@
 {-# LANGUAGE OverloadedRecordDot #-}
-{-# LANGUAGE TupleSections #-}
 
 import Control.Monad (liftM2)
 import qualified Data.Array as Ix
-import Data.List.Split (splitOn, splitOneOf)
-import Utils (runSolution, testWithExample, debug)
-import Data.Maybe (catMaybes, isJust, isNothing, mapMaybe)
 import Data.List (uncons)
+import Data.List.Split (splitOneOf)
+import Data.Maybe (isJust, mapMaybe)
+import Utils (runSolution)
 
-type X = Integer
+type Coord3D = (Integer, Integer, Integer)
 
-type Y = Integer
+type Velocity3D = (Integer, Integer, Integer)
 
-type Z = Integer
+type Coord2D = (Integer, Integer)
 
-type Coord = (X, Y, Z)
+type Velocity2D = (Integer, Integer)
 
-type Velocity = (X, Y, Z)
+data Axis = X | Y | Z deriving (Eq, Ord, Show, Enum)
 
-data Hailstone = Hail {initPos :: Coord, velocity :: Velocity} deriving (Eq, Ord, Show)
+data Hailstone = Hail {initPos :: Coord3D, velocity :: Velocity3D} deriving (Eq, Ord, Show)
+
+type Line2D = (Integer, Integer, Integer, Integer)
 
 fst' :: (a, b, c) -> a
 fst' (x, _, _) = x
@@ -29,7 +30,7 @@ snd' (_, y, _) = y
 trd :: (a, b, c) -> c
 trd (_, _, z) = z
 
-toTriples :: [Integer] -> [Coord]
+toTriples :: [Integer] -> [Coord3D]
 toTriples xs = case take 3 xs of
   [] -> []
   [x, y, z] -> (x, y, z) : toTriples (drop 3 xs)
@@ -45,8 +46,6 @@ parseHailstones = map parseLine
         (coord, v) = case toTriples extractedNumbers of
           [x, y] -> (x, y)
           _ -> error "failed to parse input"
-
-type Line2D = (Integer, Integer, Integer, Integer)
 
 solveEq :: Line2D -> Line2D -> Maybe (Rational, Rational)
 solveEq (a, b, c, d) (e, f, g, h) = trySolveEquation
@@ -69,16 +68,27 @@ makePairs :: [a] -> [(a, a)]
 makePairs [] = []
 makePairs (a : rest) = [(a, b) | b <- rest] ++ makePairs rest
 
-extractParams :: Hailstone -> Line2D
-extractParams hail = (fst' hail.initPos, snd' hail.initPos, fst' hail.velocity, snd' hail.velocity)
+extract2DParams :: Axis -> Axis -> Hailstone -> Line2D
+extract2DParams axisA axisB hail
+  | axisA == axisB = error "wrong input param. should choose two different axes"
+  | otherwise = (axisA' hail.initPos, axisB' hail.initPos, axisA' hail.velocity, axisB' hail.velocity)
+  where
+    getter axis = case axis of
+      X -> fst'
+      Y -> snd'
+      Z -> trd
+    (axisA', axisB') = (getter axisA, getter axisB)
+
+extractXY :: Hailstone -> Line2D
+extractXY = extract2DParams X Y
 
 solveEq' :: (Hailstone, Hailstone) -> Maybe (Rational, Rational)
-solveEq' (hailA, hailB) = solveEq (extractParams hailA) (extractParams hailB)
+solveEq' (hailA, hailB) = solveEq (extractXY hailA) (extractXY hailB)
 
 checkIntersection :: (Integer, Integer) -> Hailstone -> Hailstone -> Case
 checkIntersection testRange hailA hailB = checkResult
   where
-    intersection = solveEq (extractParams hailA) (extractParams hailB)
+    intersection = solveEq (extractXY hailA) (extractXY hailB)
 
     checkResult = case intersection of
       Nothing -> Parallel
@@ -105,7 +115,6 @@ checkIntersection testRange hailA hailB = checkResult
         bothInFuture = inFuture hailA x && inFuture hailB x
         bothInBound = inBound x && inBound y
 
-
 countIntersections :: (Integer, Integer) -> [Hailstone] -> Int
 countIntersections testRange hailstones = length $ filter willCross [check pair | pair <- allPairs]
   where
@@ -122,75 +131,81 @@ day24part1 input = countIntersections testRange hailstones
   where
     hailstones = parseHailstones input
     testRange = (200000000000000, 400000000000000)
-    -- testRange = (7, 27)
 
+-- testRange = (7, 27)
 
 linesOverlap :: Line2D -> Line2D -> Bool
-linesOverlap (a,b,c,d) (e,f,g,h) = sameSlope && sameIntercept
+linesOverlap (a, b, c, d) (e, f, g, h) = sameSlope && sameIntercept
   where
     sameSlope = c * h == d * g
-    sameIntercept = (b * c - a * d) * g   == (f * g -  e * h) * c
+    sameIntercept = (b * c - a * d) * g == (f * g - e * h) * c
 
-
-shiftReferenceFrame2D :: (Int, Int) -> Hailstone -> Line2D
-shiftReferenceFrame2D (vx, vy) hail = (x0, y0, dx0 - fromIntegral vx, dy0 - fromIntegral vy)
+shiftReferenceFrame2D :: Axis -> Axis -> Velocity2D -> Hailstone -> Line2D
+shiftReferenceFrame2D axisA axisB (vx, vy) hail = (x0, y0, dx0 - vx, dy0 - vy)
   where
-    (x0, y0, dx0, dy0) = extractParams hail
+    (x0, y0, dx0, dy0) = extract2DParams axisA axisB hail
 
-verifyIntersect :: [Line2D] -> Maybe (Int, Int)
-verifyIntersect shiftedHails = verifyIntersect' (tail shiftedHails) Nothing
+shiftReferenceFrameXY :: Velocity2D -> Hailstone -> Line2D
+shiftReferenceFrameXY = shiftReferenceFrame2D X Y
+
+detectIntersect :: [Line2D] -> Maybe Coord2D
+detectIntersect shiftedHails = verifyIntersect' (tail shiftedHails) Nothing
   where
     firstHail = head shiftedHails
 
-    verifyIntersect' :: [Line2D] -> Maybe (Rational, Rational) -> Maybe (Int, Int)
+    verifyIntersect' :: [Line2D] -> Maybe (Rational, Rational) -> Maybe Coord2D
     verifyIntersect' [] (Just (vx, vy)) = Just (floor vx, floor vy)
     verifyIntersect' [] Nothing = Nothing
-    verifyIntersect' (x:xs) intersection =
+    verifyIntersect' (x : xs) intersection =
       case (sameline, intersection) of
         (True, _) -> checkNext
         (False, Nothing) -> if isJust currIntersection then checkNext' else Nothing
         (False, Just _) -> if intersection == currIntersection then checkNext else Nothing
-        where
-          sameline = linesOverlap firstHail x
-          checkNext = verifyIntersect' xs intersection
-          currIntersection = solveEq firstHail x
-          checkNext' = verifyIntersect' xs currIntersection
+      where
+        sameline = linesOverlap firstHail x
+        checkNext = verifyIntersect' xs intersection
+        currIntersection = solveEq firstHail x
+        checkNext' = verifyIntersect' xs currIntersection
 
 
-
-searchRockVelocity :: [Hailstone] -> Int -> Int -> Maybe ((Int, Int), (Int, Int))
-searchRockVelocity hailstones from to = case uncons search of
+searchRockVelocity2D :: [Hailstone] -> (Axis, Axis) -> [Velocity2D] -> Maybe (Velocity2D, Coord2D)
+searchRockVelocity2D hailstones (axisA, axisB) searchRange = case uncons search of
   Nothing -> Nothing
   Just (x, _) -> Just x
   where
-    searchRange = [(a * vx, b * vy) | vx <- lst, vy <- lst, a <- [1, -1], b <- [1, -1]]
-    lst = [from..to]
     search = mapMaybe verifyRockVelocity searchRange
 
-    -- search = catMaybes [verifyIntersect
-    --        (map (shiftReferenceFrame2D vshift) hailstones) |
-    --        vshift <- searchRange]
-    -- search = filter (isJust . verifyRockVelocity ) map (shiftReferenceFrame2D` hailstones) 
-
-    verifyRockVelocity :: (Int, Int) -> Maybe ((Int, Int), (Int, Int))
+    verifyRockVelocity :: Velocity2D -> Maybe (Velocity2D, Coord2D)
     verifyRockVelocity (vx, vy) = case result of
-        Nothing -> Nothing
-        Just (x, y) -> Just ((vx, vy), (x, y))
+      Nothing -> Nothing
+      Just (x, y) -> Just ((vx, vy), (x, y))
       where
-        shiftedHails = map (shiftReferenceFrame2D (vx, vy)) hailstones
-        result = verifyIntersect shiftedHails
+        shiftedHails = map (shiftReferenceFrame2D axisA axisB (vx, vy)) hailstones
+        result = detectIntersect shiftedHails
 
+day24part2 :: [String] -> (Coord3D, Integer)
+day24part2 input = searchResult 
+    where
+      hailstones = parseHailstones input
+      lst = [1 .. 1000]
 
-trial input = searchRockVelocity hailstones 1 500
-  where
-    hailstones = parseHailstones input
-    -- vshift = (-3, 1)
-    -- shiftedLines = map vshift hailstones
-    -- allPairs = makePairs $ map (shiftReferenceFrame2D vshift) hailstones
+      searchRangeXY = [(a * vx, b * vy) | vx <- lst, vy <- lst, a <- [1, -1], b <- [1, -1]]
+      xySearchResult = searchRockVelocity2D hailstones (X,Y) searchRangeXY
 
+      searchResult :: (Coord3D, Integer)
+      searchResult = case xySearchResult of 
+        Nothing -> error "no result found in given search space"
+        Just ((rockVelX, rockVelY), (x, y)) -> searchXZ
+          where
 
+          searchRangeXZ = [(rockVelX, c * vz) | vz <- lst, c <- [1, -1]]
+          xzSearchResult = searchRockVelocity2D hailstones (X,Z) searchRangeXZ
 
+          searchXZ = case xzSearchResult of
+            Nothing -> error "failed to resolve Z velocity"
+            Just ((_, rockVelZ), (_, z)) -> ((rockVelX, rockVelY, rockVelZ), x + y + z)
+
+main :: IO ()
 main = do
-  testWithExample "24" trial
-  -- runSolution 24 trial
-  -- runSolution 24 day24part1
+  -- testWithExample "24" day24part2
+  runSolution 24 day24part2
