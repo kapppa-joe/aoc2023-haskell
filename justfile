@@ -1,5 +1,7 @@
 set positional-arguments
 
+alias r := run
+
 rebuild:
   cabal build
 
@@ -8,6 +10,9 @@ run day:
 
 compile day:
   cabal exec ghc 'src/Day{{day}}.hs' -- -O2 -outputdir bin -o 'bin/{{day}}'
+
+rnc day: (compile day)
+  'bin/{{day}}'
 
 clean_dir:
   rm src/*.o src/*.hi
