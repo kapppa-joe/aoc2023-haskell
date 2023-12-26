@@ -36,19 +36,22 @@ day25 input = (Set.size groupA * Set.size groupB, Set.size groupA, Set.size grou
     groupB = Set.difference initSet groupA
 
     removeStranger :: Group -> Group
-    removeStranger set = Set.delete strangerNode set
+    removeStranger group = Set.delete strangerNode group
       where
-        strangerNode = maximumBy (compare `on` count') $ Set.toList set
-        count' = countExternalNeighbour set
+        strangerNode = maximumBy (compare `on` count') $ Set.toList group
+        count' = countExternalNeighbour group
 
     separatedByThreeCuts :: Group -> Bool
-    separatedByThreeCuts set = externalConnections == 3
+    separatedByThreeCuts group = externalConnections == 3
       where
-        externalConnections = sum $ map count' $ Set.toList set
-        count' = countExternalNeighbour set
+        externalConnections = sum $ map count' $ Set.toList group
+        count' = countExternalNeighbour group
 
     countExternalNeighbour :: Group -> Node -> Int
-    countExternalNeighbour set node = Set.size $ Set.difference (Map.findWithDefault Set.empty node graph) set
+    countExternalNeighbour group node = Set.size neighboursNotInThisGroup
+      where
+        allNeighbours = Map.findWithDefault Set.empty node graph
+        neighboursNotInThisGroup = Set.difference allNeighbours group
 
 main :: IO ()
 main = do
